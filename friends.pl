@@ -114,4 +114,25 @@ factorial_no_list(Fact, Value) :-
 	Fact is Value * NextFact.
 	
 
+% cut test: issue: factorial of a negative number will
+% cause a stackoverflow error
+	
+factorial_unsafe(1, 1) :- !.	
+factorial_unsafe(Fact, Value) :-
+	Next is Value - 1,
+	factorial_unsafe(NextFact, Next), 
+	Fact is Value * NextFact.
+	
+%% safer version: add a goal
+factorial_safe(1, 1).	
+factorial_safe(Fact, Value) :-
+	Next is Value - 1, Next > 0,
+	factorial(NextFact, Next), 
+	Fact is Value * NextFact.
+	
+%% user input to go betweeen quotes	
+greet :- 
+	write('hello, your name?'), 
+	read(X),
+	format(`what's up? ~w`, [X]).
 
