@@ -86,7 +86,11 @@ since it is not bound before that
 %	not(member(H, T)).
 	
 /* ================================================================================== */
-	
+
+/* item types */
+food(bananas).
+
+/* items' location */	
 at(room10, key_to_jungle).
 at(room5, magic_wand).
 at(room7, bananas).
@@ -99,6 +103,47 @@ at(room5, rotten_bananas_detector).
 at(room6, key_to_safe).
 at(room9, safe).
 
+
+
+/* inspecting a place */
+look :-
+	i_am_at(Here),
+	at(Here, Item),
+	format("Looking, around...~sFound: ~w", ["\n", Item]).
+	
+
+
+
+/* picking and dropping items */
+pick(Item):-
+	i_am_at(Place),
+	at(Place, Item),
+	can_pick,
+	assertz(holding(Item)),
+	retract(at(Place, Item)), !.
+	
+drop(Item):-
+	i_am_at(Place),
+	holding(Item),
+	retract(holding(Item)),
+	assertz(at(Place, Item)), !. /*dbl check*/
+	
+can_pick:-
+	still_space_in_pockets;
+	write("Your pockets are full! Drop something or eat it!!"),
+	fail.
+
+still_space_in_pockets:-	
+	aggregate_all(count, holding(_), Count),
+	Count < 3.
+	
+empty_pockets:-
+	aggregate_all(count, holding(_), Count),
+	Count == 0.
+	
+holding(nothing):- fail.
+
+/* interactions with items... to be fixed... */
 infected(bananas, room8).
 rotten(banans, room3).
 
@@ -113,46 +158,13 @@ does_damage(Item, Damage):-
 	
 damage(Life, Damage).
 
-look :-
-	i_am_at(Here),
-	at(Here, Item),
-	format("Looking, around...~sFound: ~w", ["\n", Item]).
-	
+
 eat(Item):-
 	is_food(Item).
 	
 	
 unlock(Item):-
 	Item == safe.
-
-is_food(bananas).
-
-pick(Item):-
-	i_am_at(Place),
-	at(Place, Item),
-	can_pick,
-	assertz(holding(Item)),
-	retract(at(Place, Item)).
-	
-drop(Item):-
-	i_am_at(Place),
-	holding(Item),
-	retract(holding(Item)),
-	assert(at(Place, Item)).
-	
-can_pick:-
-	Current is 0,
-	have_space_in_pockets(Current, Total),
-	Total =< 3.
-
-have_space_in_pockets(Current, Total):-
-	holding(_),
-	Increment is Current + 1, 
-	have_space_in_pockets(Increment, Total).
-have_space_in_pockets(0, Total):-
-	Total is 0, !.
-have_space_in_pockets(Current, Total):-
-	Total is Current.	
 
 
 
