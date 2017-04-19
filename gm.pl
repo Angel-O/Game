@@ -3,106 +3,38 @@
 set_prolog_flag(answer_write_options,[max_depth(0)]).
 
 /* certain stuff will move around... */
-:- dynamic(i_am_at/1).
+:- dynamic(i_am_at/2).
 :- dynamic(named/1). 
 :- dynamic(locked/2).
 :- dynamic(life/1).
+:- dynamic(holding/1).
+
+/* ========================== Importing files and modules ============================= */
+
+/* this describes how rooms are conneted between them */
+:- include('rooms.pl').
+:- use_module(moving, [n/0, s/0, w/0, e/0]).
+
+
+/* ================================== Start facts ===================================== */
 
 /* this section will reset the game ot the initital state when the game is reloaded */
-:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(alive(_)).
+:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(alive(_)), retractall(holding(_)).
 i_am_at(grey_area). /* you start the game in a neboulous place called grey_area... */
 named(player).
+locked(room8, north). /* locking the door to the jungle */
+locked(room1, north). /* to be removed.... */
+life(Value) :- Value = 20.
+win :- i_am_at(jungle). /* more to come...being alive... */
+first_name :-
+	write("type your name (\"in double qoutes\"): "),
+	read(X),
+	retract(named(me, _)),
+	assert(named(me, X)),
+	format(`welcome to aMazeInMonkey, ~w`, [X]).
 
-/* ================================================================================== */
-/* this section describes which locations are connected between them and in what 
-direction */
-path(grey_area, south, room1).
-path(grey_area, west, room1).
-path(grey_area, north, room1).
-path(grey_area, east, room1).
-
-path(room1, south, grey_area).
-path(room1, west, room3).
-path(room1, north, room2).
-path(room1, east, room4).
-
-path(room2, south, room1).
-path(room2, west, room6).
-path(room2, north, room9).
-path(room2, east, room4).
-
-path(room3, south, room1).
-path(room3, north, room6).
  
-path(room4, south, room1).
-path(room4, west, room2).
-path(room4, east, room8).
-
-path(room5, south, room9).
-path(room5, west, room7).
-path(room5, north, room8).
-
-path(room6, south, room3).
-path(room6, north, room7).
-path(room6, east, room2).
-
-path(room7, south, room6).
-path(room7, west, grey_area).
-path(room7, north, room10).
-/* path(room7, east, room5). */
-
-path(room8, south, room9).
-/* path(room8, west, room6). */
-path(room8, north, jungle).
-path(room8, east, room4).
-
-/* path(room9, south, room1). */
-path(room9, west, room5).
-path(room9, north, room10).
-path(room9, east, room8).
-
-path(room10, south, room9).
-path(room10, west, room7).
-path(room10, east, key_room).
-
-path(jungle, north, sroom).
-
-
-/* ================================================================================== */
-/* ====================== Moving around the maze ==================================== */
-
-/* Go somewhere:
-1. no longer being where I was 
-2. being somewhere new 
-3. being allowed move in sunch direction from here*/
-go(Direction) :-
-	i_am_at(Here), /* if I am Here */
-	can_go_from_here(Here, Direction), /* and the direction from the current location is clear */
-	path(Here, Direction, There), /* I will end up There if I go this Direction */
-	retract(i_am_at(Here)), /* so I will no longer be Here */
-	assert(i_am_at(There)), /* but I will be There */
-	format("You are in ~w", [There]).
-
-/* Aliases */
-n :- go(north).
-s :- go(south).
-w :- go(west).
-e : go(east).
- 
- can_go_from_here(Here, Direction):-
- 	not(locked(Here, Direction)) ; /*using disjunction to evaluate second goal and print a friendly message*/
- 	write("That door is locked."),
- 	fail. /* since I used disjunction ONLY to evaluate the second goal I need to report a fail
- 			otherwise the rule will be succesful */ 
- 
-/*fix r4 r8...east..*/
-
-
-
-
-
-/* ================================================================================== */
-/* ==================== Find all paths between 2 locations ========================== */	
+/* ====================== Find all paths between 2 locations ========================== */	
 /* 
 a location B can be reached from a location A if:
 1. A is adjacent to a location C, C is adjacent to a location D, 
@@ -155,22 +87,72 @@ since it is not bound before that
 	
 /* ================================================================================== */
 	
-/* start facts */
+at(room10, key_to_jungle).
+at(room5, magic_wand).
+at(room7, bananas).
+at(room1, bananas).
+at(room2, bananas).
+at(room9, bananas).
+at(room8, bananas). /*they will be rotten*/
+at(room3, bananas). /* they will be infected */
+at(room5, rotten_bananas_detector).
+at(room6, key_to_safe).
+at(room9, safe).
 
-locked(room8, north). /* locking the door to the jungle */
-locked(room1, north). /* to be removed.... */
+infected(bananas, room8).
+rotten(banans, room3).
 
-life(Value) :- Value = 20.
+health(Item):-
+	i_am_at(Place),
+	not(infected(Item, Place)).
+	
 
-win :- i_am_at(jungle). /* more to come...being alive... */
+does_damage(Item, Damage):-
+	infected(Item, [5, 4, 3, 2, 1]);
+	rotten(Item, [2, 1]).
+	
+damage(Life, Damage).
 
-first_name :-
-	write("type your name (\"in double qoutes\"): "),
-	read(X),
-	retract(named(me, _)),
-	assert(named(me, X)),
-	format(`welcome to aMazeInMonkey, ~w`, [X]).
+look :-
+	i_am_at(Here),
+	at(Here, Item),
+	format("Looking, around...~sFound: ~w", ["\n", Item]).
+	
+eat(Item):-
+	is_food(Item).
+	
+	
+unlock(Item):-
+	Item == safe.
 
+is_food(bananas).
+
+pick(Item):-
+	i_am_at(Place),
+	at(Place, Item),
+	can_pick,
+	assertz(holding(Item)),
+	retract(at(Place, Item)).
+	
+drop(Item):-
+	i_am_at(Place),
+	holding(Item),
+	retract(holding(Item)),
+	assert(at(Place, Item)).
+	
+can_pick:-
+	Current is 0,
+	have_space_in_pockets(Current, Total),
+	Total =< 3.
+
+have_space_in_pockets(Current, Total):-
+	holding(_),
+	Increment is Current + 1, 
+	have_space_in_pockets(Increment, Total).
+have_space_in_pockets(0, Total):-
+	Total is 0, !.
+have_space_in_pockets(Current, Total):-
+	Total is Current.	
 
 
 
