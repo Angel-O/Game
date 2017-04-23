@@ -59,51 +59,120 @@ at(room3, food(banana, infected)).
 at(room5, object(rotten_banana_detector)).
 at(room6, object(key_to_safe, _)).
 at(room9, safe(magic_wand, locked)).
+
+/* debug */
 at(grey_area, food(banana, infected)).
 at(grey_area, food(apple, healthy)).
+at(grey_area, object(key_to_safe, _)).
+at(grey_area, safe(magic_wand, locked)).
+
 
 /* defining items as containers */
 contains(Item, Content) :- 
 	Item = food(Content, _);
-	Item = safe(Content, _);
-	Item = object(Content).
+	Item = object(Content, Content).
+contains(Item, Content) :-
+	Item = safe(_, locked),
+	Content = locked_safe.
+contains(Item, Content) :-
+	Item = safe(empty, unlocked),
+	Content = "empty safe".
+contains(Item, Content) :-
+	Item = safe(X, unlocked),
+	X \= empty,
+	Content = X.
+	
+/* defining what items can be picked */
+can_be_picked(Item):-
+	Item = food(_, _);
+	Item = object(_, _).
+	
+can_be_picked(Item):-
+	Item = safe(_, locked),
+	format("There is a safe here, but you can't lift it...~s", ["\n"]),
+	fail.
+	
 
 /* ===================================  Actions  ===================================== */
 /* inspecting a place */
 look :-
-	write("Looking around...found:"), nl,
-	inspect.	
-inspect :-
+	write("Looking around...:"), nl,
 	i_am_at(Here),
+	there_is_something(Here), !, /* stop checking if there is nothing around */
 	at(Here, Stuff),
 	contains(Stuff, Content),
-	format("~w~s", [Content, "\n"]). /*helper not needed atm*/
-/* picking items */
+	format("1 x ~w~s", [Content, "\n"]).
+there_is_something(Place) :-
+	at(Place, _); 
+	write("nothing in the area"), fail.
+/* picking individual items */
 pick(Item):-
+	Item == safe,
+	can_be_picked(safe(_,_)),!,
+	fail.	
+pick(Item):-
+	Item \= safe,
 	i_am_at(Place),
+	item_is_actually_there(Place, Container, Item),
+	can_be_picked(Container),
 	contains(Container, Item),
-	at(Place, Container),
 	can_pick,
 	assertz(holding(Container)),
+	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), !.
+/* picking everything */
+pick:-
+	i_am_at(Place),
+	item_is_near_me(Place, Container), !, /* stop backtracking if the item is not there!!! */
+	can_be_picked(Container), !, /* stop backtracking if the item is cannot be picked up */
+	contains(Container, Item),
+	can_pick,
+	assertz(holding(Container)),
+	format("Picked: ~w~s", [Item, "\n"]),
+	retract(at(Place, Container)),
+	pick.
+/* helper */	
+item_is_near_me(Place, Item):-
+	at(Place, Item);
+	format("nothing else to pick here...~s", ["\n"]),
+	fail.
+/* helper */	
+item_is_actually_there(Place, Item, Content):-
+	at(Place, Item);
+	format("~w? ...are you dreaming??!", [Content]),
+	fail.
 /* dropping items */	
 drop(Item):-
 	i_am_at(Place),
 	contains(Container, Item),
 	holding(Container),
 	retract(holding(Container)),
-	assertz(at(Place, Container)), !. /* TODO: dbl check */
+	assertz(at(Place, Container)), !.
+/* dropping everything */
+drop:-
+	i_am_at(Place),
+	holding(Container),
+	contains(Container, Item),
+	retract(holding(Container)),
+	assertz(at(Place, Container)),
+	format("Dropped: ~w~s", [Item, "\n"]),
+	drop.
 /* TODO: listing items held */
-%pockets:-.
 can_pick:-
-	still_space_in_pockets;
-	write("Your pockets are full! Drop something or eat it!!"),
-	fail.
-/* less than 3 items */
-still_space_in_pockets:-	
-	aggregate_all(count, holding(_), Count),
+	count_item_in_pockets(Count), 
+	still_space_in_pockets(Count), !,
+	not(max_reached(Count)),
 	Count < 3.
-/* nothing held*/	
+/* less than 3 items */
+count_item_in_pockets(Count):-	
+	aggregate_all(count, holding(_), Count).
+/* allow less than 2 items and stop */
+still_space_in_pockets(Count):- Count =< 3.
+max_reached(Count):-
+	Count == 3,
+	write("Your pockets are full! Drop something or eat it!!"),
+	fail, !.
+/* nothing held */	
 empty_pockets:-
 	aggregate_all(count, holding(_), Count),
 	Count == 0.	
@@ -124,27 +193,56 @@ edible(Item):-
 does_damage(Content, infected):-
 	life_points(Life),
 	NewLife is Life - 3,
+	retract(life_points(_)),
 	assert(life_points(NewLife)),
 	format("You ate ~s ~w. New life: ~w", [infected, Content, NewLife]), !.
 does_damage(Content, rotten):- 
 	life_points(Life),
 	NewLife is Life - 2,
+	retract(life_points(_)),
 	assert(life_points(NewLife)),
 	format("You ate ~s ~W. New life: ~w", [rotten, Content, NewLife]), !.
 does_damage(_, healthy):- 
 	life_points(Life),
 	NewLife is Life + 1,
+	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	format("Yummy! New life: ~w", [Life]), !.
+	format("Yummy! New life: ~w", [NewLife]), !.
 does_damage(_, _):-
 	write("You can't eat that!"), fail. /*random damage...todo*/
-	
-	
+
+/* listing all items held */	
+pockets:-
+	i_hold_anything, !, /* stop checking if I have nothing */
+	write("checking pockets..."), nl,
+	holding(Container),
+	contains(Container, Item),
+	format("1 x ~w~s", [Item, "\n"]).
+i_hold_anything:-
+	holding(_);
+	write("You have nothing, mate...keep looking."), fail.
+
 /* interactions with items -- safe. TODO: prevent safe from being picked */
-%unlock(Safe):-.
+unlock:-
+	i_am_at(Place),
+	at(Place, Item),
+	Item = safe(Content, locked),
+	holding(object(key_to_safe, _)), /*you hold the key container...*/
+	retract(at(Place, Item)),
+	assert(at(Place, safe(empty, unlocked))),
+	assertz(at(Place, object(Content, Content))),
+	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]).
+/* picking up an object from a safe */	
+grab:-
+	i_am_at(Place),
+	at(Place, safe(Content, unlocked)),
+	can_pick,
+	pick(object(Content, Content)).
+grab:-
+	i_am_at(Place),
+	at(Place, safe(_, locked)),
+	write("You can grab anything until you unlock the safe"), nl, fail.
 	
-unlock(Item):-
-	Item == safe.
 
 /* enemy types */
 /* enemys' locations */
