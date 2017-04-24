@@ -16,7 +16,7 @@
 :- use_module(moving, [n/0, s/0, w/0, e/0]).
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1 ]).
+ pick_from_safe/2, holding/1, is_there_even_a_safe/0 ]).
 
 /* ================================== Game reset ====================================== */
 /* this section will reset the game ot the initital state when the game is reloaded */
@@ -169,37 +169,38 @@ pockets:-
 	holding(Container),
 	contains(Container, Item),
 	format("1 x ~w~s", [Item, "\n"]).
+	
+/* ====================== safes ======================= */
 /* unlock safes */
+unlock:- is_there_even_a_safe.
 unlock:-
 	i_am_at(Place),
-	safe_is_not_there(Place).
+	at(Place, safe(_, locked)),
+	not(holding(object(key_to_safe, _))),
+	write("You can't unlock a safe without a key"), nl, fail.
 unlock:-
 	i_am_at(Place),
-	%safe_is_there(Place), !,
 	at(Place, Item),
 	Item = safe(Content, locked),
 	Precious = Content,
 	holding(object(key_to_safe, _)), /*you hold the key container...*/
-	%assertz(at(Place, Precious, Precious)),
 	retract(at(Place, Item)),
-	assert(at(Place, safe(Precious, unlocked))), /*add (empty)*/
+	assert(at(Place, safe(Precious, unlocked))),
 	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]), !.
 /* grabbing an object from an open safe */
+grab:- is_there_even_a_safe.
 grab:-
 	i_am_at(Place),
-	safe_is_not_there(Place).
+	at(Place, safe(_, locked)),
+	write("You can't grab anything until you unlock the safe"), nl, fail.
 grab:-
 	i_am_at(Place),
 	at(Place, safe(Content, unlocked)),
 	can_pick,
 	pick_from_safe(Content, Place) , !.
-grab:-
-	i_am_at(Place),
-	at(Place, safe(_, locked)),
-	write("You can't grab anything until you unlock the safe"), nl, fail.
-safe_is_not_there(Place):-
-	not(at(Place, safe(_, _))),
-	write("There isn't even a safe here..., try another place"), nl, fail, !.
+
+
+
 
 /* enemy types */
 /* enemys' locations */

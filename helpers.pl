@@ -1,6 +1,6 @@
 :- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1 ]).
+ pick_from_safe/2, holding/1, is_there_even_a_safe/0 ]).
 
 :- dynamic(holding/1).
 
@@ -71,3 +71,11 @@ pick_from_safe(Item, Place):-
 	retract(at(Place, safe(Item, unlocked))),
 	assertz(at(Place, safe(empty, unlocked))),
 	format("Picked: ~w~s", [Item, "\n"]), !.
+
+/* unlock and grab helpers */	
+is_there_even_a_safe:-
+	i_am_at(Place),
+	safe_is_not_there(Place).
+safe_is_not_there(Place):-
+	not(at(Place, safe(_, _))),
+	write("There isn't even a safe here..., try another place"), nl, fail, !.
