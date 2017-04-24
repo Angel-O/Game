@@ -81,7 +81,10 @@ contains(Item, Content) :-
 contains(Item, Content) :-
 	Item = safe(X, unlocked),
 	X \= empty,
-	Content = X.
+	name(" (inside an open safe)", Suffix),
+	name(X, Prefix),
+	append(Prefix, Suffix, ContentToList),
+	name(Content, ContentToList).
 	
 /* defining what items can be picked */
 can_be_picked(Item):-
@@ -91,6 +94,10 @@ can_be_picked(Item):-
 can_be_picked(Item):-
 	Item = safe(_, locked),
 	format("There is a safe here, but you can't lift it...~s", ["\n"]),
+	fail.
+can_be_picked(Item):-
+	Item = safe(_, unlocked),
+	format("You can't pick it...but you can grab it!...~s", ["\n"]),
 	fail.
 	
 
@@ -109,7 +116,7 @@ there_is_something(Place) :-
 /* picking individual items */
 pick(Item):-
 	Item == safe,
-	can_be_picked(safe(_,_)),!,
+	can_be_picked(safe(_,_)), !,
 	fail.	
 pick(Item):-
 	Item \= safe,
@@ -184,7 +191,7 @@ eat(Item):-
 	contains(Container, Item),
 	holding(Container),
 	retract(holding(Container)), !,
-	edible(Container).
+	edible(Container), !.
 /* is the item edible */
 edible(Item):-
 	contains(Item, Content),
@@ -196,13 +203,13 @@ does_damage(Content, infected):-
 	NewLife is Life - 3,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	format("You ate ~s ~w. New life: ~w", [infected, Content, NewLife]), !.
+	format("You ate: ~s ~w. New life: ~w", [infected, Content, NewLife]), !.
 does_damage(Content, rotten):- 
 	life_points(Life),
 	NewLife is Life - 2,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	format("You ate ~s ~W. New life: ~w", [rotten, Content, NewLife]), !.
+	format("You ate: ~s ~W. New life: ~w", [rotten, Content, NewLife]), !.
 does_damage(_, healthy):- 
 	life_points(Life),
 	NewLife is Life + 1,
@@ -230,29 +237,28 @@ unlock:-
 	Item = safe(Content, locked),
 	Precious = Content,
 	holding(object(key_to_safe, _)), /*you hold the key container...*/
-	assertz(at(Place, Precious, Precious)),
+	%assertz(at(Place, Precious, Precious)),
 	retract(at(Place, Item)),
 	assert(at(Place, safe(Precious, unlocked))), /*add (empty)*/
-	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]).
+	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]), !.
 /* picking up an object from a safe */	
 grab:-
 	i_am_at(Place),
 	at(Place, safe(Content, unlocked)),
 	can_pick,
-	pick_from_safe(Content).
+	pick_from_safe(Content, Place) , !.
 grab:-
 	i_am_at(Place),
 	at(Place, safe(_, locked)),
 	write("You can grab anything until you unlock the safe"), nl, fail.
-	
-pick_from_safe(Item):-
-	i_am_at(Place),
-	contains(Container, Item),
-	can_pick,
-	assertz(holding(Container)),
-	format("Picked: ~w~s", [Item, "\n"]),
-	retract(at(Place, Container)),
-	assert(at(Place, safe(empty, unlocked))), !.
+/* helper */	
+pick_from_safe(Item, Place):-
+	can_pick, /* make predicate private and remove this...*/
+	Stuff = object(Item, Item),
+	assertz(holding(Stuff)),
+	retract(at(Place, safe(Item, unlocked))),
+	assertz(at(Place, safe(empty, unlocked))),
+	format("Picked: ~w~s", [Item, "\n"]), !.
 	
 
 /* enemy types */
