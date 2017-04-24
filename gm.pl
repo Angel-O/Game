@@ -65,6 +65,7 @@ at(grey_area, food(banana, infected)).
 at(grey_area, food(apple, healthy)).
 at(grey_area, object(key_to_safe, _)).
 at(grey_area, safe(magic_wand, locked)).
+at(room1, safe(key_to_jungle, locked)).
 
 
 /* defining items as containers */
@@ -227,21 +228,31 @@ unlock:-
 	i_am_at(Place),
 	at(Place, Item),
 	Item = safe(Content, locked),
+	Precious = Content,
 	holding(object(key_to_safe, _)), /*you hold the key container...*/
+	assertz(at(Place, Precious, Precious)),
 	retract(at(Place, Item)),
-	assert(at(Place, safe(empty, unlocked))),
-	assertz(at(Place, object(Content, Content))),
+	assert(at(Place, safe(Precious, unlocked))), /*add (empty)*/
 	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]).
 /* picking up an object from a safe */	
 grab:-
 	i_am_at(Place),
 	at(Place, safe(Content, unlocked)),
 	can_pick,
-	pick(object(Content, Content)).
+	pick_from_safe(Content).
 grab:-
 	i_am_at(Place),
 	at(Place, safe(_, locked)),
 	write("You can grab anything until you unlock the safe"), nl, fail.
+	
+pick_from_safe(Item):-
+	i_am_at(Place),
+	contains(Container, Item),
+	can_pick,
+	assertz(holding(Container)),
+	format("Picked: ~w~s", [Item, "\n"]),
+	retract(at(Place, Container)),
+	assert(at(Place, safe(empty, unlocked))), !.
 	
 
 /* enemy types */
