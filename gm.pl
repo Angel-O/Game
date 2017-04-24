@@ -13,7 +13,7 @@
 /* ========================== Importing files and modules ============================= */
 /* this describes how rooms are conneted between them */
 :- include('rooms.pl').
-:- use_module(moving, [n/0, s/0, w/0, e/0]).
+:- use_module(moving, [n/0, s/0, w/0, e/0, punch/0]).
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
  pick_from_safe/2, holding/1, is_there_even_a_safe/0 ]).
@@ -34,6 +34,10 @@ game_over :-
 life :- 
 	life_points(X),
 	write(X).
+	
+where :-
+	i_am_at(Place),
+	format("Current location: ~w", [Place]).
 	
 /* user interaction... */
 first_name :-
@@ -69,6 +73,8 @@ at(grey_area, food(apple, healthy)).
 at(grey_area, object(key_to_safe, _)).
 at(grey_area, safe(magic_wand, locked)).
 at(room1, safe(key_to_jungle, locked)).
+at(grey_area, enemy(evil_bat, 2)).
+at(grey_area, enemy(gorilla, 20)).
 
 
 /* defining items as containers */
@@ -200,10 +206,19 @@ grab:-
 	pick_from_safe(Content, Place) , !.
 
 
-
+/* ============================= INTERACTION WITH ENEMIES ============================= */
 
 /* enemy types */
+
+enemy(zoo_keeper, 7).
+enemy(evil_bat, 5).
+enemy(gorilla, 12).
+
+
 /* enemys' locations */
 /* interaction with enemies */
+
+
+	
 
 
