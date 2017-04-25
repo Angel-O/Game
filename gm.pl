@@ -5,7 +5,8 @@
 /* dynamic predicates */
 :- dynamic(i_am_at/2).
 :- dynamic(at/2).
-:- dynamic(named/1). 
+:- dynamic(named/1).
+%:- dynamic(pick_name/0).
 :- dynamic(locked/2).
 :- dynamic(helpers:holding/1).
 :- dynamic(life_points/1).
@@ -22,6 +23,7 @@
 /* this section will reset the game ot the initital state when the game is reloaded */
 :- retractall(at(_, _)), retractall(i_am_at(_)), retractall(life_points(_)), retractall(holding(_)).
 :- assert(life_points(20)).
+%:- assert(pick_name).
 
 /* ================================== Game misc  ===================================== */
 /* more to come... */
@@ -39,8 +41,13 @@ where :-
 	i_am_at(Place),
 	format("Current location: ~w", [Place]).
 	
+me:-
+	named(Name),
+	life_points(Life),
+	format("name: ~w, life: ~w\n", [Name, Life]).
+	
 /* user interaction... */
-first_name :-
+pick_name :-
 	write("type your name (\"in double qoutes\"): "),
 	read(X),
 	retract(named(me, _)),

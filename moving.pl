@@ -43,7 +43,6 @@ e :- go(east).
 
 
 /* enemies on the way */
-%attacked:- attacked_by(_).
 
 attacked_by(evil_bat):-
 	i_am_at(Place),
@@ -73,6 +72,7 @@ attacked_by(gorilla):-
 	format("You have been punched by a ~w...You can't go anywhere without fighting (good luck son!) New life: ~w~s", [gorilla, NewLife, "\n"]),
 	drop_item. /* a gorilla punch will make you drop items */
 
+/* a gorilla punch aftermaths */
 drop_item:-
 	holding(Container),
 	contains(Container, Item),
@@ -80,12 +80,60 @@ drop_item:-
 	format("That punch made you lose a: ~w", [Item]).
 drop_item. /*even if we have nothing to drop this predicate is always true as the attack needs to be successful*/
 
+/* enemies dodging: to do change chances of dodging based on player life points */
+dodge(Type):-
+	dodge_chances(Type, Value),
+	dodge(Type, Value).
+/* bats have 50% chances to dodge a hit */
+dodge_chances(evil_bat, Chance):-
+	random(0, 2, Chance).
+/* zoo_keepers have 30% */
+dodge_chances(gorilla, Chance):-
+	random(0, 3, Chance).	
+/* gorillas have 25% */
+dodge_chances(gorilla, Chance):-
+	random(0, 5, Chance).
+/* helper */
+dodge(Type, 1):- 
+	format("the ~w dodged your punch!", [Type]).
+dodge(_, _):- 
+	fail.
+
+/* TODO enemy reaction based on their own behaviours and their life points */
+reaction(Type):-
+	react_chances(Type, Value),
+	react(Type, Value).
+/* bats have 50% chances to dodge a hit */
+react_chances(evil_bat, Chance):-
+	random(0, 2, Chance).
+/* zoo_keepers have 30% */
+react_chances(gorilla, Chance):-
+	random(0, 3, Chance).	
+/* gorillas have 25% */
+react_chances(gorilla, Chance):-
+	random(0, 5, Chance).
+/* helper */
+react(Type, 1):- 
+	format("the ~w dodged your punch!", [Type]).
+react(_, _):- 
+	fail.
+
+%reaction(evil_bat):-
+%	random(0,1, Value),
+%	react(evil_bat, Value).
+	
+%react(evil_bat, 0).
+%react(evil_bat, 1):-
+%	attacked_by(evil_bat).
+	
+
 /* fight !*/	
 punch:-
 	life_points(Life),
 	punch_power(Life, Power),
 	i_am_at(Place),
-	at(Place, enemy(Type, Enemy_life)),
+	at(Place, enemy(Type, Enemy_life)), !, /* only hit one enemy at a time */
+	not(dodge(Type)), !,
 	New_enemy_life is Enemy_life - Power,
 	damage_enemy(Type, Enemy_life, New_enemy_life), !.
 
@@ -101,9 +149,9 @@ damage_enemy(Type, Old_life, _):-
 	retract(at(Place, enemy(Type, Old_life))),
 	format("Well done! You just got rid of a: ~w.", [Type, "\n"]), !.
 
-/* get the punch power depending on the life level */
-punch_power(Life, _):-
-	Life < 0,
+/* get the punch power depending on life level */
+punch_power(Life, Power):-
+	Life < 3, Power is 0,
 	write("you are to weak to fight...eat some fruit, son!"), fail.	
 punch_power(Life, Power):-
 	Life < 5, Power is 1, !.
