@@ -42,20 +42,25 @@ does_damage(Content, infected):-
 	NewLife is Life - 3,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	format("You ate: ~s ~w. New life: ~w", [infected, Content, NewLife]), !.
+	format("You ate: ~s ~w. New life: ~w", [infected, Content, NewLife]),
+	alive(Alive), Alive == true, !.
 does_damage(Content, rotten):- 
 	life_points(Life),
 	NewLife is Life - 2,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	format("You ate: ~s ~W. New life: ~w", [rotten, Content, NewLife]), !.
+	format("You ate: ~s ~W. New life: ~w", [rotten, Content, NewLife]),
+	alive(Alive), Alive == true, !.
 does_damage(_, healthy):- 
 	life_points(Life),
 	NewLife is Life + 1,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
 	format("Yummy! New life: ~w", [NewLife]), !.
+/* this double wild card will be matched no matter what, even 
+if the alive predicate fails, therefore I am checking the life points directly*/
 does_damage(_, _):-
+	life_points(Life), Life > 0,
 	write("You can't eat that!"), fail. /*random damage...todo*/
 
 /* pockets helper */	

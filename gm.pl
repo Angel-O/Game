@@ -5,11 +5,12 @@
 /* dynamic predicates */
 :- dynamic(i_am_at/2).
 :- dynamic(at/2).
+:- dynamic(at_area/3).
 :- dynamic(named/1).
-%:- dynamic(pick_name/0).
 :- dynamic(locked/2).
 :- dynamic(helpers:holding/1).
 :- dynamic(life_points/1).
+:- dynamic(moved/1).
 
 /* ========================== Importing files and modules ============================= */
 /* this describes how rooms are conneted between them */
@@ -21,19 +22,22 @@
 
 /* ================================== Game reset ====================================== */
 /* this section will reset the game ot the initital state when the game is reloaded */
-:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(life_points(_)), retractall(holding(_)).
-%:- assert(life_points(-9)).
-%:- assert(pick_name).
+:- retractall(at(_, _)), retractall(i_am_at(_)), 
+	retractall(life_points(_)), retractall(holding(_)), 
+	retractall(at_area(_, _, _)), retractall(moved(_)) .
+
 
 /* ================================== Game misc  ===================================== */
 /* more to come... */
 win :- i_am_at(jungle).
-game_over :-
-	life_points(X),
-	X < 0;
-	write("Game Over"), fail.
+%game_over :-
+%	life_points(X),
+%	X < 0;
+%	write("Game Over"), fail.
 
 life_points(20).
+
+moved(nowhere).
 	
 life :- 
 	life_points(X),
@@ -41,7 +45,8 @@ life :-
 	
 where :-
 	i_am_at(Place),
-	format("Current location: ~w", [Place]).
+	moved(Area),
+	format("Current location: ~w, ~w", [Place, Area]).
 	
 me:-
 	named(Name),
@@ -58,9 +63,7 @@ alive(Points, Alive):-
 	Alive = false, fail. 
 alive(Points, Alive):-
 	Points > 0,
-	Alive = true.
-	
-	
+	Alive = true.	
 	
 /* user interaction... */
 select_name :-
@@ -96,8 +99,9 @@ at(grey_area, food(apple, healthy)).
 at(grey_area, object(key_to_safe, _)).
 at(grey_area, safe(magic_wand, locked)).
 at(room1, safe(key_to_jungle, locked)).
-at(grey_area, enemy(evil_bat, 2, aggressive)).
-at(grey_area, enemy(gorilla, 20, aggressive)).
+
+at_area(grey_area, north, enemy(evil_bat, 2, aggressive)).
+at_area(grey_area, north, enemy(gorilla, 20, aggressive)).
 
 
 /* defining items as containers */
@@ -147,9 +151,9 @@ look(_) :-
 	contains(Stuff, Content),
 	format("1 x ~w~s", [Content, "\n"]).
 /* picking individual items */
-pick(_):-
+pick(Item):-
 alive(Alive),
-	Alive = true, pick(_, _).
+	Alive = true, pick(Item, _).
 pick(Item, _):-
 	can_pick,
 	i_am_at(Place),
@@ -175,9 +179,9 @@ pick_all(_):-
 	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), pick_all(_), !.
 /* dropping individual items */	
-drop(_):-
+drop(Item):-
 alive(Alive),
-	Alive = true, drop(_, _).
+	Alive = true, drop(Item, _).
 drop(Item, _):-
 	i_am_at(Place),
 	contains(Container, Item),
@@ -197,9 +201,9 @@ drop_all(_):-
 	format("Dropped: ~w~s", [Item, "\n"]),
 	drop_all(_).
 /* eating items */
-eat(_):-
+eat(Item):-
 	alive(Alive),
-	Alive = true, eat(_, _).
+	Alive = true, eat(Item, _).
 eat(Item, _):-
 	contains(Container, Item),
 	holding(Container),

@@ -1,5 +1,6 @@
 :- module(moving, [n/0, s/0, w/0, e/0, punch/0]).
 
+
 /* ====================== Moving around the maze ==================================== */
 
 /* GO SOMEWHERE PREDICATE TODO....make this private*/
@@ -10,12 +11,18 @@
 /* but I will be There instead */
 
 go(Direction) :-
+	moved(Previous),
+	retract(moved(Previous)),
+	assert(moved(Direction)),
 	i_am_at(Here), 
-	not(attacked_by(_, Alive)), Alive == true, !, 
+	not(attacked_by(_)), 
+	life_points(Life), Life > 0, !, /* additional check necessary to prevent moving to next area */
 	can_go_from_here(Here, Direction), 
 	connected(Here, Direction, There),
 	retract(i_am_at(Here)), 
 	assert(i_am_at(There)),
+	retract(moved(Direction)),
+	assert(moved(just_arrived)),
 	format("You are in ~w", [There]), !.
 
 /* NOTE: if I the direction is not valid we don't want to evaluate
@@ -38,57 +45,60 @@ door_is_not_locked(Here, Direction) :-
  /* Aliases */
 n :- 
 	alive(Alive),
-	Alive = true, n(_).
-n(_) :- go(north).
+	Alive == true, !, n(_), !.
+n(_) :- go(north), !.
 s :- 
 	alive(Alive),
-	Alive = true, s(_).
-s(_) :- go(south).
+	Alive == true, !, s(_), !.
+s(_) :- go(south), !.
 w :- 
 	alive(Alive),
-	Alive = true, w(_).
-w(_) :- go(west).
+	Alive == true, !, w(_), !.
+w(_) :- go(west), !.
 e :- 
 	alive(Alive),
-	Alive = true, e(_).
-e(_) :- go(east).
+	Alive == true, !, e(_), !.
+e(_) :- go(east), !.
 
 
-/* enemies on the way (ambush) */
+/* enemies on the way (ambush) TODO add direction.... */
 
-attacked_by(evil_bat, Alive):-
+attacked_by(evil_bat):-
 	i_am_at(Place),
-	at(Place, enemy(evil_bat, _, _)),
+	moved(Direction),
+	at_area(Place, Direction, enemy(evil_bat, _, _)),
 	life_points(Life),
 	random(1, 3, Enemy_power),
 	NewLife is Life - Enemy_power,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	alive(Alive), Alive == true,
-	format("You have been bitten by an ~w...You can't go anywhere without fighting! New life: ~w~s", [evil_bat, NewLife, "\n"]).
+	format("You have been bitten by an ~w...\nYou can't go ~w without fighting! New life: ~w~s", [evil_bat, Direction, NewLife, "\n"]),
+	alive(Alive), Alive == true, !.
 	
-attacked_by(zoo_keeper, Alive):-
+attacked_by(zoo_keeper):-
 	i_am_at(Place),
-	at(Place, enemy(zoo_keeper, _, _)),
+	moved(Direction),
+	at_area(Place, Direction, enemy(zoo_keeper, _, _)),
 	life_points(Life),
 	random(1, 4, Enemy_power),
 	NewLife is Life - Enemy_power,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	alive(Alive), Alive == true,
-	format("You have shot by a ~w...You can't go anywhere without fighting! New life: ~w~s", [zoo_keeper, NewLife, "\n"]).
+	format("You have shot by a ~w...\nYou can't go ~w without fighting! New life: ~w~s", [zoo_keeper, Direction, NewLife, "\n"]),
+	alive(Alive), Alive == true, !.
 
-attacked_by(gorilla, Alive):-
+attacked_by(gorilla):-
 	i_am_at(Place),
-	at(Place, enemy(gorilla, _, _)),
+	moved(Direction),
+	at_area(Place, Direction, enemy(gorilla, _, _)),
 	life_points(Life),
 	random(3, 6, Enemy_power),
 	NewLife is Life - Enemy_power,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	alive(Alive), Alive == true,
-	format("You have been punched by a ~w...You can't go anywhere without fighting (good luck son!) New life: ~w~s", [gorilla, NewLife, "\n"]),
-	drop_item. /* a gorilla punch will make you drop items */
+	format("You have been punched by a ~w...\nYou can't go ~w without fighting (good luck son!) New life: ~w~s", [gorilla, Direction, NewLife, "\n"]),
+	alive(Alive), Alive == true, !,
+	drop_item, !. /* a gorilla punch will make you drop items */
 
 /* a gorilla punch aftermaths */
 drop_item:-
@@ -128,7 +138,8 @@ react(Type, Behaviour):-
 	attack_chances(Behaviour, Chance),
 	Chance == 1,
 	format("Careful! This ~w is fighting back!~s", [Type, "\n"]),
-	attacked_by(Type, Alive), Alive == true, !.
+	attacked_by(Type),
+	alive(Alive), Alive == true, !.
 react(_, _).
 
 /* there is 50% chance that an aggressive enemy will fight back */
@@ -149,8 +160,10 @@ punch:-
 punch(_):-
 	life_points(Life),
 	punch_power(Life, Power),
+	Power > 0, !,
 	i_am_at(Place),
-	at(Place, enemy(Type, Enemy_life, Behaviour)), !, /* only hit one enemy at a time */
+	moved(Direction),
+	at_area(Place, Direction, enemy(Type, Enemy_life, Behaviour)), !, /* only hit one enemy at a time */
 	not(dodge(Type)), !,
 	New_enemy_life is Enemy_life - Power,
 	damage_enemy(Type, Enemy_life, New_enemy_life, Behaviour),
@@ -160,13 +173,15 @@ punch(_):-
 damage_enemy(Type, Old_life, New_enemy_life, Behaviour):-
 	New_enemy_life > 0,
 	i_am_at(Place),
-	retract(at(Place, enemy(Type, Old_life, Behaviour))),
+	moved(Direction),
+	retract(at_area(Place, Direction, enemy(Type, Old_life, Behaviour))),
 	change_attitude(New_enemy_life, NewBehaviour, Behaviour),
-	assert(at(Place, enemy(Type, New_enemy_life, NewBehaviour))),
+	assert(at_area(Place, Direction, enemy(Type, New_enemy_life, NewBehaviour))),
 	format("You punched a ~w. ~w life: ~w~s", [Type, Type, New_enemy_life, "\n"]), !.
 damage_enemy(Type, Old_life, _, Behaviour):-
 	i_am_at(Place),
-	retract(at(Place, enemy(Type, Old_life, Behaviour))),
+	moved(Direction),
+	retract(at_area(Place, Direction, enemy(Type, Old_life, Behaviour))),
 	format("Well done! You just got rid of a: ~w.", [Type, "\n"]), !.
 change_attitude(Enemy_life, NewBehaviour, _):-
 	Enemy_life < 5,
@@ -177,7 +192,7 @@ change_attitude(_, NewBehaviour, Behaviour):-
 /* get the punch power depending on life level */
 punch_power(Life, Power):-
 	Life < 3, Power is 0,
-	write("you are to weak to fight...eat some fruit, son!"), fail.	
+	write("you are to weak to fight...eat some fruit, son!\n"), !, fail.	
 punch_power(Life, Power):-
 	Life < 5, Power is 1, !.
 punch_power(Life, Power):-
