@@ -1,6 +1,6 @@
 :- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1, is_there_even_a_safe/0 ]).
+ pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3 ]).
 
 :- dynamic(holding/1).
 
@@ -15,8 +15,8 @@ item_is_near_me(Place, Item):-
 	at(Place, Item);
 	format("nothing else to pick here...~s", ["\n"]),
 	fail.
-item_is_actually_there(Place, Item, Content):-
-	at(Place, Item);
+item_is_actually_there(Place, Container, Content):-
+	at(Place, Container);
 	format("~w? ...are you dreaming??!", [Content]),
 	fail.
 can_pick:-
@@ -29,7 +29,7 @@ count_item_in_pockets(Count):-
 still_space_in_pockets(Count):- Count =< 3.
 max_reached(Count):-
 	Count == 3,
-	write("Your pockets are full! Drop something or eat it!!"),
+	write("Your pockets are full! Drop something or eat it!!\n"),
 	fail, !.
 	
 /*  eat helper */

@@ -17,12 +17,12 @@
 :- use_module(moving, [n/0, s/0, w/0, e/0, punch/0]).
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1, is_there_even_a_safe/0 ]).
+ pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3 ]).
 
 /* ================================== Game reset ====================================== */
 /* this section will reset the game ot the initital state when the game is reloaded */
 :- retractall(at(_, _)), retractall(i_am_at(_)), retractall(life_points(_)), retractall(holding(_)).
-:- assert(life_points(20)).
+%:- assert(life_points(-9)).
 %:- assert(pick_name).
 
 /* ================================== Game misc  ===================================== */
@@ -32,6 +32,8 @@ game_over :-
 	life_points(X),
 	X < 0;
 	write("Game Over"), fail.
+
+life_points(20).
 	
 life :- 
 	life_points(X),
@@ -46,8 +48,22 @@ me:-
 	life_points(Life),
 	format("name: ~w, life: ~w\n", [Name, Life]).
 	
+alive(Alive):-
+	life_points(Points),
+	alive(Points, Alive).
+alive(Points, Alive):-
+	Points =< 0,
+	format("~sGame Over, thanks for playing <aMazeInMonkey>.~sStats >>> ", ["\n", "\n\n"]),
+	me, /* print stats */
+	Alive = false, fail. 
+alive(Points, Alive):-
+	Points > 0,
+	Alive = true.
+	
+	
+	
 /* user interaction... */
-pick_name :-
+select_name :-
 	write("type your name (\"in double qoutes\"): "),
 	read(X),
 	retract(named(me, _)),
@@ -80,8 +96,8 @@ at(grey_area, food(apple, healthy)).
 at(grey_area, object(key_to_safe, _)).
 at(grey_area, safe(magic_wand, locked)).
 at(room1, safe(key_to_jungle, locked)).
-at(grey_area, enemy(evil_bat, 2)).
-at(grey_area, enemy(gorilla, 20)).
+at(grey_area, enemy(evil_bat, 2, aggressive)).
+at(grey_area, enemy(gorilla, 20, aggressive)).
 
 
 /* defining items as containers */
@@ -120,7 +136,10 @@ can_be_picked(Item):-
 /* ============================= INTERACTION WITH OBJECTS ============================= */
 
 /* inspecting a place */
-look :-
+look:-
+	alive(Alive),
+	Alive = true, look(_).
+look(_) :-
 	write("Looking around...:"), nl,
 	i_am_at(Here),
 	there_is_something(Here), !, /* stop checking if there is nothing around */
@@ -128,55 +147,69 @@ look :-
 	contains(Stuff, Content),
 	format("1 x ~w~s", [Content, "\n"]).
 /* picking individual items */
-pick(Item):-
-	Item == safe,
-	can_be_picked(safe(_,_)), !,
-	fail.	
-pick(Item):-
-	Item \= safe,
+pick(_):-
+alive(Alive),
+	Alive = true, pick(_, _).
+pick(Item, _):-
+	can_pick,
 	i_am_at(Place),
 	item_is_actually_there(Place, Container, Item),
+	Container \= safe(_, _),
 	can_be_picked(Container),
 	contains(Container, Item),
-	can_pick,
 	assertz(holding(Container)),
 	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), !.
 /* picking everything around */
-pick:-
-	i_am_at(Place),
-	item_is_near_me(Place, Container), !, /* stop backtracking if the item is not there!!! */
-	can_be_picked(Container), !, /* stop backtracking if the item is cannot be picked up */
-	contains(Container, Item),
+pick_all:-
+alive(Alive),
+	Alive = true, pick_all(_).
+pick_all(_):-
 	can_pick,
+	i_am_at(Place),
+	item_is_near_me(Place, Container),
+	Container \= safe(_, _),
+	can_be_picked(Container), !,
 	assertz(holding(Container)),
+	contains(Container, Item),
 	format("Picked: ~w~s", [Item, "\n"]),
-	retract(at(Place, Container)),
-	pick.
+	retract(at(Place, Container)), pick_all(_), !.
 /* dropping individual items */	
-drop(Item):-
+drop(_):-
+alive(Alive),
+	Alive = true, drop(_, _).
+drop(Item, _):-
 	i_am_at(Place),
 	contains(Container, Item),
 	holding(Container),
 	retract(holding(Container)),
 	assertz(at(Place, Container)), !.
 /* dropping everything */
-drop:-
+drop_all:-
+alive(Alive),
+	Alive = true, drop_all(_).
+drop_all(_):-
 	i_am_at(Place),
 	holding(Container),
 	contains(Container, Item),
 	retract(holding(Container)),
 	assertz(at(Place, Container)),
 	format("Dropped: ~w~s", [Item, "\n"]),
-	drop.
+	drop_all(_).
 /* eating items */
-eat(Item):-
+eat(_):-
+	alive(Alive),
+	Alive = true, eat(_, _).
+eat(Item, _):-
 	contains(Container, Item),
 	holding(Container),
 	retract(holding(Container)), !,
 	edible(Container), !.
-/* listing all items held */	
+/* listing all items held */
 pockets:-
+	alive(Alive),
+	Alive = true, pockets(_).	
+pockets(_):-
 	i_hold_anything, !, /* stop checking if I have nothing */
 	write("checking pockets..."), nl,
 	holding(Container),
@@ -185,13 +218,17 @@ pockets:-
 	
 /* ====================== safes ======================= */
 /* unlock safes */
-unlock:- is_there_even_a_safe.
-unlock:-
+unlock:- 
+	alive(Alive),
+	Alive = true, unlock(_).
+unlock(_):-
+	is_there_even_a_safe.
+unlock(_):-
 	i_am_at(Place),
 	at(Place, safe(_, locked)),
 	not(holding(object(key_to_safe, _))),
 	write("You can't unlock a safe without a key"), nl, fail.
-unlock:-
+unlock(_):-
 	i_am_at(Place),
 	at(Place, Item),
 	Item = safe(Content, locked),
@@ -201,12 +238,16 @@ unlock:-
 	assert(at(Place, safe(Precious, unlocked))),
 	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]), !.
 /* grabbing an object from an open safe */
-grab:- is_there_even_a_safe.
-grab:-
+grab:- 
+	alive(Alive),
+	Alive = true, grab(_).
+grab(_):-
+	is_there_even_a_safe.
+grab(_):-
 	i_am_at(Place),
 	at(Place, safe(_, locked)),
 	write("You can't grab anything until you unlock the safe"), nl, fail.
-grab:-
+grab(_):-
 	i_am_at(Place),
 	at(Place, safe(Content, unlocked)),
 	can_pick,
@@ -216,12 +257,6 @@ grab:-
 /* ============================= INTERACTION WITH ENEMIES ============================= */
 
 /* enemy types */
-
-enemy(zoo_keeper, 7).
-enemy(evil_bat, 5).
-enemy(gorilla, 12).
-
-
 /* enemys' locations */
 /* interaction with enemies */
 
