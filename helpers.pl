@@ -1,8 +1,31 @@
 :- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3 ]).
+ pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3, pair/0 ]).
 
 :- dynamic(holding/1).
+
+
+/*holding(Item):-
+	Item = object(discovery_specs, unequipped),
+	format("You have the discovery specs: find the lens to be able to see more!").
+holding(Item):-
+	Item = object(discovery_specs, lens),
+	format("You have fully equipped specs now! Wear them!").*/
+	
+pair:-
+	holding(object(discovery_specs, _)),
+	holding(object(lens, _)),
+	retract(holding(object(discovery_specs, _))),
+	retract(holding(object(lens, _))),
+	assertz(holding(object(discovery_specs, lens))),
+	write("Well done! Now you can see enemies and what they hold!"), !.
+pair:-
+	holding(object(discovery_specs, lens)),
+	write("Discovery specs and lens are already paired.\nUse your equipped specs to see even more"), fail, !.
+pair:-
+	not(holding(object(discovery_specs, lens))),
+	write("You need discovery specs and lens!\n"), fail, !.
+
 
 /* ======================================== HELPERS =================================== */
 /* look helper */

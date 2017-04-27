@@ -11,6 +11,7 @@
 :- dynamic(helpers:holding/1).
 :- dynamic(life_points/1).
 :- dynamic(moved/1).
+:- dynamic(enemy_holds/2).
 
 /* ========================== Importing files and modules ============================= */
 /* this describes how rooms are conneted between them */
@@ -18,13 +19,14 @@
 :- use_module(moving, [n/0, s/0, w/0, e/0, punch/0]).
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3 ]).
+ pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3, pair/0 ]).
 
 /* ================================== Game reset ====================================== */
 /* this section will reset the game ot the initital state when the game is reloaded */
 :- retractall(at(_, _)), retractall(i_am_at(_)), 
 	retractall(life_points(_)), retractall(holding(_)), 
-	retractall(at_area(_, _, _)), retractall(moved(_)) .
+	retractall(at_area(_, _, _)), retractall(moved(_)),
+	retractall(enemy_holds(_, _)).
 
 
 /* ================================== Game misc  ===================================== */
@@ -46,12 +48,12 @@ life :-
 where :-
 	i_am_at(Place),
 	moved(Area),
-	format("Current location: ~w, ~w", [Place, Area]).
+	format("Current location: ~w, ~w side", [Place, Area]).
 	
 me:-
 	named(Name),
 	life_points(Life),
-	format("name: ~w, life: ~w\n", [Name, Life]).
+	format("Name: ~w, Life: ~w\n", [Name, Life]).
 	
 alive(Alive):-
 	life_points(Points),
@@ -89,7 +91,7 @@ at(room2, food(banana, healthy)).
 at(room4, food(banana, healthy)).
 at(room8, food(banana, rotten)). 
 at(room3, food(banana, infected)). 
-at(room5, object(rotten_banana_detector)).
+at(room5, object(rotten_banana_detector, _)).
 at(room6, object(key_to_safe, _)).
 at(room9, safe(magic_wand, locked)).
 
@@ -97,17 +99,32 @@ at(room9, safe(magic_wand, locked)).
 at(grey_area, food(banana, infected)).
 at(grey_area, food(apple, healthy)).
 at(grey_area, object(key_to_safe, _)).
-at(grey_area, safe(magic_wand, locked)).
+at(grey_area, safe(magic_glasses, locked)).
 at(room1, safe(key_to_jungle, locked)).
 
-at_area(grey_area, north, enemy(evil_bat, 2, aggressive)).
-at_area(grey_area, north, enemy(gorilla, 20, aggressive)).
+at(grey_area, object(discovery_specs, unequipped)).
+at(grey_area, object(lens, _)).
+
+at_area(grey_area, north, enemy(evil_bat, b1, 2, aggressive)).
+at_area(grey_area, north, enemy(gorilla, g1, 20, aggressive)).
+at_area(grey_area, north, enemy(zoo_keeper, z1, 7, aggressive)).
+
+enemy_holds(b1, object(lens, _)).
+enemy_holds(b1, object(shield, _)).
+enemy_holds(g1, object(lens, _)).
+enemy_holds(z1, object(elisir, _)).
 
 
 /* defining items as containers */
 contains(Item, Content) :- 
-	Item = food(Content, _);
-	Item = object(Content, Content).
+	Item = food(Content, _).
+contains(object(discovery_specs, lens), Content) :-
+	name(" (equipped)", Suffix),
+	name(discovery_specs, Prefix),
+	append(Prefix, Suffix, ContentToList),
+	name(Content, ContentToList), !.
+contains(Item, Content) :- 
+	Item = object(Content, _).
 contains(Item, Content) :-
 	Item = safe(_, locked),
 	Content = locked_safe.
@@ -149,10 +166,23 @@ look(_) :-
 	there_is_something(Here), !, /* stop checking if there is nothing around */
 	at(Here, Stuff),
 	contains(Stuff, Content),
-	format("1 x ~w~s", [Content, "\n"]).
+	format("1 x ~w~s", [Content, "\n"]), fail.
+inspect:- 
+	alive(Alive),
+	Alive = true, inspect(_).
+inspect(_):-
+	write("Inspecting enemies...:"), nl,
+	i_am_at(Here), moved(Area),
+	holding(object(discovery_specs, lens)),
+	at_area(Here, Area, enemy(Type, Id, _, _)),
+	list_enemy_items(Id, Item),
+	format("1 x ~w, (held by ~w)\n", [Item, Type]), fail.
+list_enemy_items(Id, Item):-
+	enemy_holds(Id, Stuff),
+	contains(Stuff, Item).
 /* picking individual items */
 pick(Item):-
-alive(Alive),
+	alive(Alive),
 	Alive = true, pick(Item, _).
 pick(Item, _):-
 	can_pick,
@@ -166,10 +196,10 @@ pick(Item, _):-
 	retract(at(Place, Container)), !.
 /* picking everything around */
 pick_all:-
-alive(Alive),
+	alive(Alive),
 	Alive = true, pick_all(_).
 pick_all(_):-
-	can_pick,
+	can_pick, !,
 	i_am_at(Place),
 	item_is_near_me(Place, Container),
 	Container \= safe(_, _),
@@ -180,7 +210,7 @@ pick_all(_):-
 	retract(at(Place, Container)), pick_all(_), !.
 /* dropping individual items */	
 drop(Item):-
-alive(Alive),
+	alive(Alive),
 	Alive = true, drop(Item, _).
 drop(Item, _):-
 	i_am_at(Place),
@@ -190,7 +220,7 @@ drop(Item, _):-
 	assertz(at(Place, Container)), !.
 /* dropping everything */
 drop_all:-
-alive(Alive),
+	alive(Alive),
 	Alive = true, drop_all(_).
 drop_all(_):-
 	i_am_at(Place),
@@ -215,10 +245,10 @@ pockets:-
 	Alive = true, pockets(_).	
 pockets(_):-
 	i_hold_anything, !, /* stop checking if I have nothing */
-	write("checking pockets..."), nl,
+	write("Checking pockets..."), nl,
 	holding(Container),
 	contains(Container, Item),
-	format("1 x ~w~s", [Item, "\n"]).
+	format("1 x ~w~s", [Item, "\n"]), fail.
 	
 /* ====================== safes ======================= */
 /* unlock safes */
@@ -264,7 +294,22 @@ grab(_):-
 /* enemys' locations */
 /* interaction with enemies */
 
+/* defined here to avoid ambiguity... */
 
-	
+enemy_drops(Place, Id):-
+	enemy_holds(Id, Item),
+	assertz(at(Place, Item)),
+	retract(enemy_holds(Id, Item)),
+	enemy_drops(Place, Id).
+enemy_drops(_, _). /* the predicate will always be true */
+
+
+steal(Type, Id):-
+	holding(Item),
+	contains(Item, Content),
+	retract(holding(Item)),
+	assertz(enemy_holds(Id, Item)),
+	format("The ~w just robbed you!~sSay goodbye to your ~w", [Type, "\n", Content]), !.
+steal(_,_).
 
 
