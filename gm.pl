@@ -156,7 +156,7 @@ can_be_picked(Item):-
 
 /* ============================= INTERACTION WITH OBJECTS ============================= */
 
-/* inspecting a place */
+/* inspecting a place looking for object */
 look:-
 	alive(Alive),
 	Alive = true, look(_).
@@ -167,6 +167,8 @@ look(_) :-
 	at(Here, Stuff),
 	contains(Stuff, Content),
 	format("1 x ~w~s", [Content, "\n"]), fail.
+	
+/* inspecting an area looking for enemies */
 inspect:- 
 	alive(Alive),
 	Alive = true, inspect(_).

@@ -24,7 +24,8 @@ go(Direction) :-
 	assert(i_am_at(There)),
 	retract(moved(Direction)),
 	assert(moved(just_arrived)),
-	format("You are in ~w", [There]), !.
+	format("You moved to ~w\n\n", [There]), 
+	not(look), !. /*not look because look always ends with a fail to force backtracking and list all items at once*/
 
 /* NOTE: if I the direction is not valid we don't want to evaluate
 the second sub-goal */ 		
@@ -152,16 +153,24 @@ react(Enemy_type, Id, Reaction_Type, Chance):-
 	Chance == 1,
 	Reaction_Type == steal,
 	steal(Enemy_type, Id), !.
+react(Enemy_type, Id, Reaction_Type, Chance):- 	
+	Chance == 1,
+	Reaction_Type == bail,
+	bail(Enemy_type, Id), !.
 react(_, _, _, _).
 
 
-%bail(Type):-
-%	holding(Item),
-%	contains(Item, Content),
-%	retract(holding(Item)),
-%	assertz(enemy_holds(Item)),
-%	format("The ~w just robbed you!~sYou lost a ~w", [Type, "\n", Content]), !.
-%bail(_).
+bail(Enemy_type, Id):-
+	i_am_at(Place),
+	moved(Area), /* or fighting */
+	at_area(Place, Area, enemy(Enemy_type, Id, Life, Behaviour)),
+	retract(at_area(Place, Area, enemy(Enemy_type, Id, Life, Behaviour))),
+	connected(Place, Area, Next_Place),
+	not(locked(Place, Area)),
+	assert(at_area(Next_Place, _, enemy(Enemy_type, Id, Life, Behaviour))),
+	retractall(fighting(_)),
+	format("...The ~w just ran away!!~s", [Enemy_type, "\n"]).
+bail(_, _).
 
 /* there is 50% chance that an aggressive enemy will fight back */
 attack_chances(aggressive, Chance):-
@@ -174,20 +183,27 @@ attack_chances(evasive, Chance):-
 	random(0, 5, Chance).
 	
 reaction_type(Reaction):-
-	random(0, 2, Value),
+	random(0, 10, Value),
 	select_reaction(Reaction, Value).	
 select_reaction(Reaction, 0):-
 	Reaction = fight.
 select_reaction(Reaction, 1):-
 	Reaction = steal.
+select_reaction(Reaction, _):-
+	Reaction = bail.
 	
 
 /* fight !*/
 punch:- 
 	alive(Alive),
-	Alive = true, punch(_).	
+	Alive = true, punch(_), !.
+punch:-
+	alive(Alive),
+	Alive = true,
+	not(fighting(_)),
+	format("What are you doing? Hitting butterflies ?? No one is around...\n"), fail.
 punch(_):-
-	life_points(Life),
+	life_points(Life),	
 	punch_power(Life, Power),
 	Power > 0, !,
 	i_am_at(Place),
@@ -198,7 +214,6 @@ punch(_):-
 	New_enemy_life is Enemy_life - Power,
 	damage_enemy(Type, Id, Enemy_life, New_enemy_life, Behaviour),
 	reaction(Type, Id, New_enemy_life, Behaviour), !.
-
 /* punch helper */
 damage_enemy(Type, Id, Old_life, New_enemy_life, Behaviour):-
 	New_enemy_life > 0,
@@ -224,7 +239,7 @@ change_attitude(_, NewBehaviour, Behaviour):-
 /* get the punch power depending on life level */
 punch_power(Life, Power):-
 	Life < 3, Power is 0,
-	write("you are to weak to fight...eat some fruit, son!\n"), !, fail.	
+	write("You are to weak to fight...eat some fruit, son!\n"), !, fail.	
 punch_power(Life, Power):-
 	Life < 5, Power is 1, !.
 punch_power(Life, Power):-
