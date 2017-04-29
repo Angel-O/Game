@@ -1,4 +1,4 @@
-:- module(moving, [n/0, s/0, w/0, e/0, punch/0]).
+:- module(moving, [n/0, s/0, w/0, e/0, punch/0, moved/1]).
 
 :- dynamic(fighting/1).
 /* ====================== Moving around the maze ==================================== */
@@ -12,9 +12,8 @@
 
 go(Direction) :-
 	retractall(fighting(_)),
-	moved(Previous),
-	retract(moved(Previous)),
-	assert(moved(Direction)),
+	retractall(moved(_)),
+	assert(moved(Direction)),	
 	i_am_at(Here), 
 	not(attacked_by(_)), !,
 	life_points(Life), Life > 0, !, /* additional check necessary to prevent moving to next area */
@@ -63,7 +62,7 @@ e :-
 e(_) :- go(east), !.
 
 
-/* enemies on the way (ambush) TODO add direction.... */
+/* enemies on the way (ambush) TODO make ambush harmless to some degree.... */
 
 attacked_by(evil_bat):-
 	i_am_at(Place),
@@ -167,7 +166,8 @@ bail(Enemy_type, Id):-
 	retract(at_area(Place, Area, enemy(Enemy_type, Id, Life, Behaviour))),
 	connected(Place, Area, Next_Place),
 	not(locked(Place, Area)),
-	assert(at_area(Next_Place, _, enemy(Enemy_type, Id, Life, Behaviour))),
+	connected(_, Random_Area, _), !,
+	assert(at_area(Next_Place, Random_Area, enemy(Enemy_type, Id, Life, Behaviour))), /*missing area!!!*/
 	retractall(fighting(_)),
 	format("...The ~w just ran away!!~s", [Enemy_type, "\n"]).
 bail(_, _).
@@ -201,7 +201,16 @@ punch:-
 	alive(Alive),
 	Alive = true,
 	not(fighting(_)),
-	format("What are you doing? Hitting butterflies ?? No one is around...\n"), fail.
+	not(holding(object(discovery_specs, lens))),
+	format("What are you doing? No one is around...\n"), fail.
+punch:-
+	alive(Alive),
+	Alive = true,
+	not(fighting(_)),
+	holding(object(discovery_specs, lens)),
+	i_am_at(Place),
+	at_area(Place, _, _), !,
+	format("Move towards the enemy to hit them...\n"), fail.
 punch(_):-
 	life_points(Life),	
 	punch_power(Life, Power),
@@ -228,7 +237,7 @@ damage_enemy(Type, Id, Old_life, _, Behaviour):-
 	moved(Direction),
 	enemy_drops(Place, Id), /* if the enemy dies it will drop everything it holds */
 	retract(at_area(Place, Direction, enemy(Type, Id, Old_life, Behaviour))),
-	retract(fighting(Id)),
+	retractall(fighting(_)),
 	format("Well done! You just got rid of a: ~w.", [Type, "\n"]), !.	
 change_attitude(Enemy_life, NewBehaviour, _):-
 	Enemy_life < 5,

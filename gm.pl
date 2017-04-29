@@ -10,16 +10,16 @@
 :- dynamic(locked/2).
 :- dynamic(helpers:holding/1).
 :- dynamic(life_points/1).
-:- dynamic(moved/1).
+:- dynamic(moving:moved/1).
 :- dynamic(enemy_holds/2).
 
 /* ========================== Importing files and modules ============================= */
 /* this describes how rooms are conneted between them */
 :- include('rooms.pl').
-:- use_module(moving, [n/0, s/0, w/0, e/0, punch/0]).
+:- use_module(moving, [n/0, s/0, w/0, e/0, punch/0, moved/1]).
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
  still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3, pair/0 ]).
+ pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3, pair/0]).
 
 /* ================================== Game reset ====================================== */
 /* this section will reset the game ot the initital state when the game is reloaded */
@@ -28,27 +28,35 @@
 	retractall(at_area(_, _, _)), retractall(moved(_)),
 	retractall(enemy_holds(_, _)).
 
+moving:moved(nowhere).
 
 /* ================================== Game misc  ===================================== */
 /* more to come... */
 win :- i_am_at(jungle).
-%game_over :-
-%	life_points(X),
-%	X < 0;
-%	write("Game Over"), fail.
 
-life_points(20).
-
-moved(nowhere).
+life_points(50).
 	
 life :- 
 	life_points(X),
-	write(X).
+	write(X).	
+	
+reset :- [gm], [moving], [helpers], [utils].
 	
 where :-
 	i_am_at(Place),
 	moved(Area),
-	format("Current location: ~w, ~w side", [Place, Area]).
+	Area == just_arrived,
+	format("Current location: ~w, ~w", [Place, Area]), !.
+where :-
+	i_am_at(Place),
+	moved(Area),
+	Area == nowhere,
+	format("Current location: ~w, ~w...", [Place, Area]), !.
+where :-
+	i_am_at(Place),
+	moved(Area),
+	Area \= just_arrived,
+	format("Current location: ~w, ~w side", [Place, Area]), !.
 	
 me:-
 	named(Name),
@@ -167,18 +175,39 @@ look(_) :-
 	at(Here, Stuff),
 	contains(Stuff, Content),
 	format("1 x ~w~s", [Content, "\n"]), fail.
-	
-/* inspecting an area looking for enemies */
+
+/* inspecting an area looking for enemies TO BE FIXED... too many branches */
 inspect:- 
 	alive(Alive),
 	Alive = true, inspect(_).
+inspect:-
+	moved(Area), Area == nowhere,
+	write("You need to pair specs and lens to be able to see more!"),! , fail.
+inspect:-
+	moved(Area), Area == just_arrived,
+	holding(object(discovery_specs, lens)),
+	write("You need to move closer to the enemy area to be able to inspect!"),! , fail.
+inspect:-
+	moved(Area), Area == just_arrived,
+	not(holding(object(discovery_specs, lens))),
+	write("You need to pair specs and lens to be able to see more!"),! , fail.
+inspect:-
+	moved(Area),
+	connected(_, Area, _),! ,
+	not(holding(object(discovery_specs, lens))),
+	write("You need to pair specs and lens to be able to see more!"), fail.
 inspect(_):-
-	write("Inspecting enemies...:"), nl,
 	i_am_at(Here), moved(Area),
 	holding(object(discovery_specs, lens)),
+	write("Inspecting enemies...:"), nl,
 	at_area(Here, Area, enemy(Type, Id, _, _)),
 	list_enemy_items(Id, Item),
 	format("1 x ~w, (held by ~w)\n", [Item, Type]), fail.
+inspect(_):-
+	i_am_at(Here), moved(Area),
+	holding(object(discovery_specs, lens)),
+	not(at_area(Here, Area, enemy(_, _, _, _))),
+	write("no one here..."),! ,fail.
 list_enemy_items(Id, Item):-
 	enemy_holds(Id, Stuff),
 	contains(Stuff, Item).
