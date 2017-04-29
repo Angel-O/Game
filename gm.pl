@@ -71,15 +71,20 @@ where :-
 	format("Current location: ~w, ~w side", [Place, Area]), !.
 
 select_name :-
-	write("Type your name (\"in double qoutes\"): "),
-	read(Name),
+	write("Type your name (lower-case, please): "),
+	read(Value),
+	process_name(Value, Name),
 	retractall(named(_)),
 	assert(named(Name)),
-	format(`Welcome to aMazeInMonkey, ~w`, [Name]).
+	format(`Hi ~w! Welcome to aMazeInMonkey.`, [Name]).
+	
+process_name(Value, Name):-
+	Value = anything_really, /* checking if the value is bound the actual 
+								value is not important */
+	Name = "monkey lover", !.
+process_name(Value, Name):-	Name = Value.
 
 /* ================================== START FACTS ===================================== */
-
-named(player). /*defining a dummy name*/
 
 :- init, select_name.
 
@@ -234,7 +239,6 @@ pick_all(_):-
 	can_pick, !,
 	i_am_at(Place),
 	item_is_near_me(Place, Container),
-	%Container \= safe(_, _),
 	can_be_picked(Container), !,
 	assertz(holding(Container)),
 	contains(Container, Item),
