@@ -68,7 +68,7 @@ where :-
 	format("Current location: ~w, ~w side", [Place, Area]), !.
 
 select_name :-
-	write(`Type your name ("in double qoutes"): `),
+	write("Type your name (\"in double qoutes\"): "),
 	read(Name),
 	retractall(named(_)),
 	assert(named(Name)),
