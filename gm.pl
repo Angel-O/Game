@@ -3,7 +3,7 @@
 %set_prolog_flag(answer_write_options,[max_depth(0)]).
 
 /* dynamic predicates */
-:- dynamic(i_am_at/2).
+:- dynamic(i_am_at/1).
 :- dynamic(at/2).
 :- dynamic(at_area/3).
 :- dynamic(named/1).
@@ -14,34 +14,43 @@
 :- dynamic(enemy_holds/2).
 
 /* ========================== Importing files and modules ============================= */
+
 /* this describes how rooms are conneted between them */
 :- include('rooms.pl').
-:- use_module(moving, [n/0, s/0, w/0, e/0, punch/0, moved/1]).
-:- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
- still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0,
- pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3, pair/0]).
+
+/* these allow the user to move around the maze */ 
+:- use_module(moving, [n/0, s/0, w/0, e/0, moved/1]).
+
+/* this allows the user to hit enemies */
+:- use_module(fight, [punch/0]).
+
+/* importing helpers predicte that should not be invoked directly by the user */
+:- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
+	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
+	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
+	is_there_even_a_safe/0, item_is_actually_there/3, alive/1]).
 
 /* ================================== Game reset ====================================== */
+
 /* this section will reset the game ot the initital state when the game is reloaded */
-:- retractall(at(_, _)), retractall(i_am_at(_)), 
-	retractall(life_points(_)), retractall(holding(_)), 
-	retractall(at_area(_, _, _)), retractall(moved(_)),
-	retractall(enemy_holds(_, _)).
+init:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(at_area(_, _, _)),  
+	retractall(life_points(_)), retractall(holding(_)), retractall(named(_)),  
+	retractall(moved(_)), retractall(locked(_)), retractall(enemy_holds(_, _)).
 
-moving:moved(nowhere).
+/* =================================== Game misc  ===================================== */
 
-/* ================================== Game misc  ===================================== */
-/* more to come... */
-win :- i_am_at(jungle).
+win :- i_am_at(jungle).		
+reset :- [gm], [moving], [fight], [helpers], [utils], init.
 
-life_points(50).
+/* ================================ Player predicates  ================================ */
 	
+me:-
+	named(Name),
+	life_points(Life),
+	format("Name: ~w, Life: ~w\n", [Name, Life]).
 life :- 
-	life_points(X),
+	life_points(X), 
 	write(X).	
-	
-reset :- [gm], [moving], [helpers], [utils].
-	
 where :-
 	i_am_at(Place),
 	moved(Area),
@@ -57,40 +66,26 @@ where :-
 	moved(Area),
 	Area \= just_arrived,
 	format("Current location: ~w, ~w side", [Place, Area]), !.
-	
-me:-
-	named(Name),
-	life_points(Life),
-	format("Name: ~w, Life: ~w\n", [Name, Life]).
-	
-alive(Alive):-
-	life_points(Points),
-	alive(Points, Alive).
-alive(Points, Alive):-
-	Points =< 0,
-	format("~sGame Over, thanks for playing <aMazeInMonkey>.~sStats >>> ", ["\n", "\n\n"]),
-	me, /* print stats */
-	Alive = false, fail. 
-alive(Points, Alive):-
-	Points > 0,
-	Alive = true.	
-	
-/* user interaction... */
-select_name :-
-	write("type your name (\"in double qoutes\"): "),
-	read(X),
-	retract(named(me, _)),
-	assert(named(me, X)),
-	format(`welcome to aMazeInMonkey, ~w`, [X]).
 
-/* ================================== Start facts ===================================== */
-/* player */
-i_am_at(grey_area). named(player).
+select_name :-
+	write(`Type your name ("in double qoutes"): `),
+	read(Name),
+	retractall(named(_)),
+	assert(named(Name)),
+	format(`Welcome to aMazeInMonkey, ~w`, [Name]).
+
+/* ================================== START FACTS ===================================== */
+
+named(player). /*defining a dummy name*/
+
+:- init, select_name.
+
+i_am_at(grey_area). moving:moved(nowhere). life_points(50).
 
 /* locations */
 locked(room8, north). locked(room1, north). /* to be removed.... */
 
-/* items' location and status */	
+/* items' location and status-description */	
 at(room10, object(key_to_jungle, _)).
 at(room5, safe(magic_wand, locked)).
 at(room7, food(banana, healthy)).
@@ -109,10 +104,8 @@ at(grey_area, food(apple, healthy)).
 at(grey_area, object(key_to_safe, _)).
 at(grey_area, safe(magic_glasses, locked)).
 at(room1, safe(key_to_jungle, locked)).
-
-at(grey_area, object(discovery_specs, unequipped)).
+at(grey_area, object(specs, unequipped)).
 at(grey_area, object(lens, _)).
-
 at_area(grey_area, north, enemy(evil_bat, b1, 2, aggressive)).
 at_area(grey_area, north, enemy(gorilla, g1, 20, aggressive)).
 at_area(grey_area, north, enemy(zoo_keeper, z1, 7, aggressive)).
@@ -126,9 +119,9 @@ enemy_holds(z1, object(elisir, _)).
 /* defining items as containers */
 contains(Item, Content) :- 
 	Item = food(Content, _).
-contains(object(discovery_specs, lens), Content) :-
+contains(object(specs, lens), Content) :-
 	name(" (equipped)", Suffix),
-	name(discovery_specs, Prefix),
+	name(specs, Prefix),
 	append(Prefix, Suffix, ContentToList),
 	name(Content, ContentToList), !.
 contains(Item, Content) :- 
@@ -161,8 +154,7 @@ can_be_picked(Item):-
 	format("You can't pick it...but you can grab it!...~s", ["\n"]),
 	fail.
 	
-
-/* ============================= INTERACTION WITH OBJECTS ============================= */
+/* =================================== LOOKING AROUND ================================= */
 
 /* inspecting a place looking for object */
 look:-
@@ -176,6 +168,8 @@ look(_) :-
 	contains(Stuff, Content),
 	format("1 x ~w~s", [Content, "\n"]), fail.
 
+/* =============================== INSPECTING ENEMIES ================================= */
+
 /* inspecting an area looking for enemies TO BE FIXED... too many branches */
 inspect:- 
 	alive(Alive),
@@ -185,32 +179,32 @@ inspect:-
 	write("You need to pair specs and lens to be able to see more!"),! , fail.
 inspect:-
 	moved(Area), Area == just_arrived,
-	holding(object(discovery_specs, lens)),
+	holding(object(specs, lens)),
 	write("You need to move closer to the enemy area to be able to inspect!"),! , fail.
 inspect:-
 	moved(Area), Area == just_arrived,
-	not(holding(object(discovery_specs, lens))),
+	not(holding(object(specs, lens))),
 	write("You need to pair specs and lens to be able to see more!"),! , fail.
 inspect:-
 	moved(Area),
 	connected(_, Area, _),! ,
-	not(holding(object(discovery_specs, lens))),
+	not(holding(object(specs, lens))),
 	write("You need to pair specs and lens to be able to see more!"), fail.
 inspect(_):-
 	i_am_at(Here), moved(Area),
-	holding(object(discovery_specs, lens)),
+	holding(object(specs, lens)),
 	write("Inspecting enemies...:"), nl,
 	at_area(Here, Area, enemy(Type, Id, _, _)),
 	list_enemy_items(Id, Item),
 	format("1 x ~w, (held by ~w)\n", [Item, Type]), fail.
 inspect(_):-
 	i_am_at(Here), moved(Area),
-	holding(object(discovery_specs, lens)),
+	holding(object(specs, lens)),
 	not(at_area(Here, Area, enemy(_, _, _, _))),
 	write("no one here..."),! ,fail.
-list_enemy_items(Id, Item):-
-	enemy_holds(Id, Stuff),
-	contains(Stuff, Item).
+
+/* ================================= PICKING objects ================================== */
+
 /* picking individual items */
 pick(Item):-
 	alive(Alive),
@@ -225,6 +219,7 @@ pick(Item, _):-
 	assertz(holding(Container)),
 	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), !.
+	
 /* picking everything around */
 pick_all:-
 	alive(Alive),
@@ -239,6 +234,9 @@ pick_all(_):-
 	contains(Container, Item),
 	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), pick_all(_), !.
+	
+/* ================================= DROPPING objects ================================= */
+
 /* dropping individual items */	
 drop(Item):-
 	alive(Alive),
@@ -249,6 +247,7 @@ drop(Item, _):-
 	holding(Container),
 	retract(holding(Container)),
 	assertz(at(Place, Container)), !.
+	
 /* dropping everything */
 drop_all:-
 	alive(Alive),
@@ -261,6 +260,9 @@ drop_all(_):-
 	assertz(at(Place, Container)),
 	format("Dropped: ~w~s", [Item, "\n"]),
 	drop_all(_).
+	
+/* ================================ EATING objects ==================================== */
+
 /* eating items */
 eat(Item):-
 	alive(Alive),
@@ -270,7 +272,10 @@ eat(Item, _):-
 	holding(Container),
 	retract(holding(Container)), !,
 	edible(Container), !.
-/* listing all items held */
+
+/* ============================= LISTING OUT HELD objects ============================= */
+
+/* listing all items currently held */
 pockets:-
 	alive(Alive),
 	Alive = true, pockets(_).	
@@ -280,9 +285,32 @@ pockets(_):-
 	holding(Container),
 	contains(Container, Item),
 	format("1 x ~w~s", [Item, "\n"]), fail.
+
+/* ================================= PAIRING objects ================================== */
 	
-/* ====================== safes ======================= */
-/* unlock safes */
+/* pairing specs and lens */
+pair:-
+	alive(Alive),
+	Alive = true, pair(_).	
+pair(_):-
+	holding(object(specs, _)),
+	holding(object(lens, _)),
+	retract(holding(object(specs, _))),
+	retract(holding(object(lens, _))),
+	assertz(holding(object(specs, lens))),
+	write("Well done! Now you can see enemies and what they hold!"), !.
+pair(_):-
+	holding(object(specs, lens)),
+	write("Discovery specs and lens are already paired"), nl,
+	write("Use your equipped specs to see even more"), fail, !.
+pair(_):-
+	not(holding(object(specs, lens))),
+	write("You need both specs and lens...\n"), fail, !.
+
+	
+/* ================================ UNLOCKING SAFES =================================== */
+
+/* unlocking safes */
 unlock:- 
 	alive(Alive),
 	Alive = true, unlock(_).
@@ -302,6 +330,9 @@ unlock(_):-
 	retract(at(Place, Item)),
 	assert(at(Place, safe(Precious, unlocked))),
 	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]), !.
+
+/* ====================== GRABBING objects from OPEN SAFES ============================ */
+	
 /* grabbing an object from an open safe */
 grab:- 
 	alive(Alive),
@@ -319,28 +350,5 @@ grab(_):-
 	pick_from_safe(Content, Place) , !.
 
 
-/* ============================= INTERACTION WITH ENEMIES ============================= */
-
-/* enemy types */
-/* enemys' locations */
-/* interaction with enemies */
-
-/* defined here to avoid ambiguity... */
-
-enemy_drops(Place, Id):-
-	enemy_holds(Id, Item),
-	assertz(at(Place, Item)),
-	retract(enemy_holds(Id, Item)),
-	enemy_drops(Place, Id).
-enemy_drops(_, _). /* the predicate will always be true */
-
-
-steal(Type, Id):-
-	holding(Item),
-	contains(Item, Content),
-	retract(holding(Item)),
-	assertz(enemy_holds(Id, Item)),
-	format("The ~w just robbed you!~sSay goodbye to your ~w", [Type, "\n", Content]), !.
-steal(_,_).
 
 

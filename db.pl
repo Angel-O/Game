@@ -26,3 +26,5 @@ factorial_no_list(Fact, Value) :-
 	Next is Value - 1, Value > 0,
 	factorial_no_list(NextFact, Next), 
 	Fact is Value * NextFact.
+
+
