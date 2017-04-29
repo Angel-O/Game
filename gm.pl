@@ -12,6 +12,8 @@
 :- dynamic(life_points/1).
 :- dynamic(moving:moved/1).
 :- dynamic(enemy_holds/2).
+:- dynamic(health/1).
+
 
 /* ========================== Importing files and modules ============================= */
 
@@ -28,7 +30,7 @@
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
 	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
 	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
-	is_there_even_a_safe/0, item_is_actually_there/3, alive/1]).
+	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1]).
 
 /* ================================== Game reset ====================================== */
 
@@ -50,7 +52,8 @@ me:-
 	format("Name: ~w, Life: ~w\n", [Name, Life]).
 life :- 
 	life_points(X), 
-	write(X).	
+	write(X).
+
 where :-
 	i_am_at(Place),
 	moved(Area),
@@ -80,7 +83,7 @@ named(player). /*defining a dummy name*/
 
 :- init, select_name.
 
-i_am_at(grey_area). moving:moved(nowhere). life_points(50).
+i_am_at(grey_area). moving:moved(nowhere). life_points(50). health(healthy).
 
 /* locations */
 locked(room8, north). locked(room1, north). /* to be removed.... */
@@ -99,6 +102,8 @@ at(room6, object(key_to_safe, _)).
 at(room9, safe(magic_wand, locked)).
 
 /* debug */
+at(grey_area, food(banana, rotten)).
+at(grey_area, drink(elisir, _)).
 at(grey_area, food(banana, infected)).
 at(grey_area, food(apple, healthy)).
 at(grey_area, object(key_to_safe, _)).
@@ -113,12 +118,13 @@ at_area(grey_area, north, enemy(zoo_keeper, z1, 7, aggressive)).
 enemy_holds(b1, object(lens, _)).
 enemy_holds(b1, object(shield, _)).
 enemy_holds(g1, object(lens, _)).
-enemy_holds(z1, object(elisir, _)).
-
+enemy_holds(z1, drink(elisir, _)).
 
 /* defining items as containers */
 contains(Item, Content) :- 
 	Item = food(Content, _).
+contains(Item, Content) :- 
+	Item = drink(Content, _).
 contains(object(specs, lens), Content) :-
 	name(" (equipped)", Suffix),
 	name(specs, Prefix),
@@ -126,33 +132,29 @@ contains(object(specs, lens), Content) :-
 	name(Content, ContentToList), !.
 contains(Item, Content) :- 
 	Item = object(Content, _).
-contains(Item, Content) :-
-	Item = safe(_, locked),
-	Content = locked_safe.
-contains(Item, Content) :-
-	Item = safe(empty, unlocked),
-	Content = "empty safe".
+	
+/* describing safe in terms of their content and locked(unlocked) status */
+contains(safe(_, locked), Content) :-
+	name(" (locked)", Suffix),
+	name("safe", Prefix),
+	append(Prefix, Suffix, ContentToList),
+	name(Content, ContentToList), !.
+contains(safe(empty, unlocked), Content) :-
+	name(" (empty)", Suffix),
+	name("safe", Prefix),
+	append(Prefix, Suffix, ContentToList),
+	name(Content, ContentToList), !.
 contains(Item, Content) :-
 	Item = safe(X, unlocked),
 	X \= empty,
-	name(" (inside an open safe)", Suffix),
-	name(X, Prefix),
-	append(Prefix, Suffix, ContentToList),
+	name("safe", Prefix),
+	name(" (unlocked, containing: 1 x ", Left_part),
+	name(X, Middle_part),
+	append(Left_part, Middle_part, Left_and_middle),
+	name(")", Right_part),
+	append(Left_and_middle, Right_part, Item_description),
+	append(Prefix, Item_description, ContentToList),
 	name(Content, ContentToList).
-	
-/* defining what items can be picked */
-can_be_picked(Item):-
-	Item = food(_, _);
-	Item = object(_, _).
-	
-can_be_picked(Item):-
-	Item = safe(_, locked),
-	format("There is a safe here, but you can't lift it...~s", ["\n"]),
-	fail.
-can_be_picked(Item):-
-	Item = safe(_, unlocked),
-	format("You can't pick it...but you can grab it!...~s", ["\n"]),
-	fail.
 	
 /* =================================== LOOKING AROUND ================================= */
 
@@ -175,21 +177,10 @@ inspect:-
 	alive(Alive),
 	Alive = true, inspect(_).
 inspect:-
-	moved(Area), Area == nowhere,
-	write("You need to pair specs and lens to be able to see more!"),! , fail.
-inspect:-
-	moved(Area), Area == just_arrived,
-	holding(object(specs, lens)),
-	write("You need to move closer to the enemy area to be able to inspect!"),! , fail.
-inspect:-
-	moved(Area), Area == just_arrived,
-	not(holding(object(specs, lens))),
-	write("You need to pair specs and lens to be able to see more!"),! , fail.
-inspect:-
 	moved(Area),
 	connected(_, Area, _),! ,
 	not(holding(object(specs, lens))),
-	write("You need to pair specs and lens to be able to see more!"), fail.
+	write("You need to pair specs and lens to be able to see more!"), fail, !.
 inspect(_):-
 	i_am_at(Here), moved(Area),
 	holding(object(specs, lens)),
@@ -201,7 +192,7 @@ inspect(_):-
 	i_am_at(Here), moved(Area),
 	holding(object(specs, lens)),
 	not(at_area(Here, Area, enemy(_, _, _, _))),
-	write("no one here..."),! ,fail.
+	write("Seems like there's no one here..."), fail, !.
 
 /* ================================= PICKING objects ================================== */
 
@@ -210,15 +201,30 @@ pick(Item):-
 	alive(Alive),
 	Alive = true, pick(Item, _).
 pick(Item, _):-
+	Item \= safe,
 	can_pick,
 	i_am_at(Place),
-	item_is_actually_there(Place, Container, Item),
-	Container \= safe(_, _),
-	can_be_picked(Container),
-	contains(Container, Item),
+	item_is_actually_there(Place, Container, Item), !,
+	can_be_picked(Container), !,
+	contains(Container, Item), /* not needed... */
 	assertz(holding(Container)),
 	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), !.
+/* trying to pick up safes */
+pick(safe, _):-
+	i_am_at(Place),
+	at(Place, safe(_, locked)), !,
+	format("You can't pick up a safe...~s", ["\n"]), fail, !.
+pick(safe, _):-
+	i_am_at(Place),
+	at(Place, safe(Item, unlocked)), !,
+	format("Safes are to heavy...Hint: try grabbing the ~w...~s", [Item, "\n"]), fail, !.
+
+/* picking one item and showing pockets content */	
+pick_and_show(Item):-
+	alive(Alive),
+	Alive = true, pick_and_show(Item, _).
+pick_and_show(Item, _):- pick(Item, _), !, nl, pockets, !.
 	
 /* picking everything around */
 pick_all:-
@@ -228,12 +234,18 @@ pick_all(_):-
 	can_pick, !,
 	i_am_at(Place),
 	item_is_near_me(Place, Container),
-	Container \= safe(_, _),
+	%Container \= safe(_, _),
 	can_be_picked(Container), !,
 	assertz(holding(Container)),
 	contains(Container, Item),
 	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), pick_all(_), !.
+
+/* picking everything and showing pockets content */
+pick_all_and_show:-
+	alive(Alive),
+	Alive = true, pick_all_and_show(_).	
+pick_all_and_show(_):- pick_all(_), !; nl, pockets, !.
 	
 /* ================================= DROPPING objects ================================= */
 
@@ -263,15 +275,22 @@ drop_all(_):-
 	
 /* ================================ EATING objects ==================================== */
 
-/* eating items */
+/* eating items TODO allow only food to be eaten */
 eat(Item):-
 	alive(Alive),
 	Alive = true, eat(Item, _).
 eat(Item, _):-
 	contains(Container, Item),
-	holding(Container),
+	holding(Container), !,
 	retract(holding(Container)), !,
 	edible(Container), !.
+eat(Item, _):-
+	contains(_, Item), !,
+	format("You have no ~w, try and find it first!", [Item]), fail, !.
+
+/* alias for the elisir */	
+drink(elisir):- !, eat(elisir), !.
+drink(_):- write("You can't drink that..."), fail.
 
 /* ============================= LISTING OUT HELD objects ============================= */
 
@@ -326,7 +345,7 @@ unlock(_):-
 	at(Place, Item),
 	Item = safe(Content, locked),
 	Precious = Content,
-	holding(object(key_to_safe, _)), /*you hold the key container...*/
+	holding(object(key_to_safe, _)), /* you hold the key container...*/
 	retract(at(Place, Item)),
 	assert(at(Place, safe(Precious, unlocked))),
 	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]), !.

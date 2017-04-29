@@ -3,9 +3,10 @@
  Ideally these predicates should not be used directly from the player.
 */
 
-:- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, count_item_in_pockets/1, 
- still_space_in_pockets/1, max_reached/1, edible/1, does_damage/2, i_hold_anything/0, list_enemy_items/2,
- pick_from_safe/2, holding/1, is_there_even_a_safe/0, item_is_actually_there/3, alive/1]).
+:- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
+	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
+	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
+	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1]).
 
 :- dynamic(holding/1).
 	
@@ -31,8 +32,11 @@ item_is_near_me(Place, Item):-
 	fail.
 /* the item is in the same room as you */
 item_is_actually_there(Place, Container, Content):-
-	at(Place, Container);
-	format("~w? ...are you dreaming??!", [Content]),
+	at(Place, Container),
+	contains(Container, Content), !.
+item_is_actually_there(Place, Container, Content):-
+	not(at(Place, Container)),
+	format("~w? ...are you dreaming??!~s", [Content, "\n"]),
 	fail.
 /* can only pick an item if the pockets are not full */
 can_pick:-
@@ -50,28 +54,48 @@ max_reached(Count):-
 	write("Your pockets are full! Drop something or eat it!!\n"),
 	fail, !.
 	
+/* defining what items can be picked */
+can_be_picked(Item):-
+	Item = food(_, _);
+	Item = object(_, _);
+	Item = drink(_, _).
+	
 /* ==================================== eat helpers =================================== */
 
 /* checking that the item collected is edible */
 edible(Item):-
 	contains(Item, Content),
 	Item = food(Content, Status),
-	does_damage(Content, Status).
+	does_damage(Content, Status).	
+edible(Item):-
+	Item = drink(elisir, _),
+	heal.
+
+/* the elisir will bring you back to the original state and heal any infection */
+heal:-
+	health(Current_status),
+	retract(user:health(Current_status)),
+	assert(user:health(healthy)),
+	retractall(life_points(_)),
+	assert(life_points(40)),
+	write("Wow, that elisir made miracles! You are brand new!\n"),
+	format("New life: ~w~w", ["40","\n"]).
 	
-/* not eveything is good to eat!! */	
-does_damage(Content, infected):-
+/* not eveything is good to eat: rotten food will cause a one time drop of 3 life pts. */	
+does_damage(Content, rotten):-
 	life_points(Life),
 	NewLife is Life - 3,
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	format("You ate: ~s ~w. New life: ~w", [infected, Content, NewLife]),
+	format("You ate: ~s ~w. New life: ~w", [rotten, Content, NewLife]),
 	alive(Alive), Alive == true, !.
-does_damage(Content, rotten):- 
-	life_points(Life),
-	NewLife is Life - 2,
-	retract(life_points(_)),
-	assert(life_points(NewLife)),
-	format("You ate: ~s ~W. New life: ~w", [rotten, Content, NewLife]),
+
+/* infected food will cause a progressive drop (-1) of life pts. */	
+does_damage(Content, infected):- 
+	retractall(health(_)),
+	assert(user:health(infected)),
+	format("You ate: ~s ~w.\n", [infected, Content]),
+	write("Find the elisir to heal or you will constantly lose life points."),
 	alive(Alive), Alive == true, !.
 	
 /* good stuff to eat */
@@ -86,7 +110,7 @@ does_damage(_, healthy):-
 if the alive predicate fails, therefore I am checking the life points directly*/
 does_damage(_, _):-
 	life_points(Life), Life > 0,
-	write("You can't eat that!"), fail. /*random damage...todo*/
+	write("You can't eat that!"), !, fail. /*random damage...todo*/
 
 /* ================================= pockets helpers =================================== */
 

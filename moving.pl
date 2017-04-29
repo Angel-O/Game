@@ -41,7 +41,8 @@ go(Direction) :-
 	assert(i_am_at(There)),
 	retract(moved(Direction)),
 	assert(moved(just_arrived)),
-	format("You moved to ~w\n\n", [There]), 
+	format("You moved to ~w\n\n", [There]),
+	infection_damage,
 	not(look), !. /* not(look) because look always ends with a fail to force backtracking 
 					 and list all items at once */
 
@@ -52,6 +53,17 @@ valid evaluate the second sub-goal won't be evaluated */
 can_go_from_here(Here, Direction):-
  	direction_is_valid(Here, Direction), !,
  	door_is_not_locked(Here, Direction). 
+
+/* if infected the player will keep losing life points each time they move */	
+infection_damage:-
+	health(infected),
+	life_points(Life),
+	New_life is Life - 1,
+	retract(life_points(Life)),
+	assert(life_points(New_life)),
+	write("You are under the effects of an infection"), nl,
+	format("You will need the elisir to heal. New Life: ~w\n\n", [New_life]).
+infection_damage. /* making the predicate always successful  */
 
 /* =========================== helpers of secondary helpers ============================ */
 
