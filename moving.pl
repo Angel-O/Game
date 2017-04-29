@@ -8,18 +8,25 @@
 use_module(fight, [fighting/1, attacked_by/0]).
 
 /* ====================================== aliases ==================================== */
+/* moving north */
 n :- 
 	alive(Alive),
 	Alive == true, !, n(_), !.
 n(_) :- go(north), !.
+
+/* moving south */
 s :- 
 	alive(Alive),
 	Alive == true, !, s(_), !.
 s(_) :- go(south), !.
+
+/* moving west */
 w :- 
 	alive(Alive),
 	Alive == true, !, w(_), !.
 w(_) :- go(west), !.
+
+/* moving east */
 e :- 
 	alive(Alive),
 	Alive == true, !, e(_), !.
