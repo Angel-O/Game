@@ -1,8 +1,11 @@
 :- module(utils, [shortest/3]). 
 
 :-dynamic(shortest_so_far/1).
+:-dynamic(longest_so_far/1).
 
 :-retractall(shortest_so_far(_)).
+
+:-set_prolog_flag(answer_write_options,[max_depth(0)]).
 
 /* ====================== Find all paths between 2 locations ========================== */	
 /* 
@@ -42,18 +45,15 @@ all_paths_dir_aux(Start, Finish, Accumulator, Path):-
 	append(Accumulator, [Direction, Next], NewAccumulator),
 	all_paths_dir_aux(Next, Finish, NewAccumulator, Path).
 	
-/* getting the shortest path between two locations!!! */
+/* getting the shortest path between two arbitrary locations!!! */
 shortest(Start, Finish, Shortest):-
-	shortest(Start, Finish, _, _);
-	shortest_so_far(Shortest), !.
-	
-shortest(Start, Finish, _, _):-
 	retractall(shortest_so_far(_)),
 	all_paths_dir(Start, Finish, First),
 	assert(shortest_so_far(First)),
-	shortest(Start, Finish, First, _, _).
+	shortest(Start, Finish, First, _);
+	shortest_so_far(Shortest), !.
 	
-shortest(Start, Finish, First, _, _):-
+shortest(Start, Finish, First, _):-
 	all_paths_dir(Start, Finish, Next),
 	Next \= First,
 	length(Next, Next_Length),
@@ -62,6 +62,24 @@ shortest(Start, Finish, First, _, _):-
 	Next_Length < Current_length,
 	retractall(shortest_so_far(_)),
 	assert(shortest_so_far(Next)), fail.
+	
+/* getting the longest path between two arbitrary locations!!! */
+longest(Start, Finish, Longest):-
+	retractall(longest_so_far(_)),
+	all_paths(Start, Finish, First),
+	assert(longest_so_far(First)),
+	longest(Start, Finish, First, _);
+	longest_so_far(Longest), !.
+	
+longest(Start, Finish, First, _):-
+	all_paths(Start, Finish, Next),
+	Next \= First,
+	length(Next, Next_Length),
+	longest_so_far(Current_longest),
+	length(Current_longest, Current_length),	
+	Next_Length > Current_length,
+	retractall(longest_so_far(_)),
+	assert(longest_so_far(Next)), fail.
 
 
 /* this rule determines if two rooms are adjacent. Note how

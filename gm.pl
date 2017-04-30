@@ -1,6 +1,6 @@
 /* <aMazeInMonkey>, by <Angelo Oparah>. */
 
-%set_prolog_flag(answer_write_options,[max_depth(0)]).
+:-set_prolog_flag(answer_write_options,[max_depth(0)]).
 
 /* dynamic predicates */
 :- dynamic(i_am_at/1).
@@ -33,7 +33,8 @@
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
 	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
 	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
-	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1]).
+	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
+	item_is_inside_open_safe/2]).
 
 /* ================================== Game reset ====================================== */
 
@@ -141,11 +142,37 @@ enemy(zoo_keeper, z4, 15, aggressive).
 
 
 place_enemies(Enemies):-
-	Enemies = [H|T].
 	shortest(grey_area, jungle, Path), /* or before the jungle... */
 	length(Path, Count),
+	reverse(Path, Reversed),
+	place_enemies(Enemies, Reversed).
+	
+place_enemies(Enemies, Path):-
+	Enemies = [H|T],	
 	Path = [F,S|R], /* first, second, rest */
-	H = enemy(Type, Id, Life, _).
+	H = enemy(Type, Id, Life, Behaviour),
+	valuable(Enemies, F), /* find the most valuable enemy */
+	connected(F, Direction, S), /* find the direction between F and S */
+	assertz(at_area(F, Direction, H)), /* place the enemy on the path */
+	place_enemies(T, [S|R]). /* place the remaining enemies */
+	
+
+/* enemies holding precious objects should be away from the shortest path */
+/* enemies that tend to react(aggressive behaviour) and have more life points should be 
+on the shortest path */
+
+valuable(Enemies, Best).
+	
+valuable(Enemies, Best):-
+	Enemies = [H|T],
+	H = enemy(_, Id, _, _),
+	enemy_holds(Id, drink(elisir, _)),
+	Best = H. /* fix....  */
+valuable(Enemies, Best):-
+	Enemies = [H|T],
+	H = enemy(Type, Id, _, _),
+	Type = gorilla, Best = H.
+valuable(_). /* more life */
 
 enemy_holds(b1, object(lens, _)).
 enemy_holds(b1, object(shield, _)).
@@ -193,7 +220,7 @@ contains(Item, Content) :-
 /* inspecting a place looking for object */
 look:-
 	alive(Alive),
-	Alive = true, look(_).
+	Alive = true, look(_); not(fail). /* always succeed no matter what */
 look(_) :-
 	write("Looking around...:"), nl,
 	i_am_at(Here),
@@ -231,17 +258,20 @@ inspect(_):-
 /* picking individual items */
 pick(Item):-
 	alive(Alive),
-	Alive = true, pick(Item, _).
+	Alive = true, can_pick, pick(Item, _).
 pick(Item, _):-
-	Item \= safe,
-	can_pick,
 	i_am_at(Place),
+	not(item_is_inside_open_safe(Place, Item)),
 	item_is_actually_there(Place, Container, Item), !,
 	can_be_picked(Container), !,
-	contains(Container, Item), /* not needed... */
 	assertz(holding(Container)),
 	format("Picked: ~w~s", [Item, "\n"]),
 	retract(at(Place, Container)), !.
+/* picking item from an open safe*/	
+pick(Item, _):-
+	i_am_at(Place),
+	item_is_inside_open_safe(Place, Item),
+	grab, !.	
 /* trying to pick up safes */
 pick(safe, _):-
 	i_am_at(Place),
@@ -249,21 +279,32 @@ pick(safe, _):-
 	format("You can't pick up a safe...~s", ["\n"]), fail, !.
 pick(safe, _):-
 	i_am_at(Place),
-	at(Place, safe(Item, unlocked)), !,
-	format("Safes are to heavy...Hint: try grabbing the ~w...~s", [Item, "\n"]), fail, !.
-
+	at(Place, safe(Item, unlocked)),
+	Item \= empty,
+	format("Safes are too heavy...Hint: try grabbing the ~w...~s", [Item, "\n"]),! ,fail.
+pick(safe, _):-
+	i_am_at(Place),
+	at(Place, safe(empty, unlocked)), !,
+	named(Name),
+	write("You can't pick up a safe..."),
+	format("and by the way this one is empty, can't you see that, ~w ?", [Name]), fail, !.
+pick(Item, _):-
+	i_am_at(Place),
+	not(item_is_actually_there(Place, _, Item)),
+	write("...And where the heck have you seen that?!"), fail.
+	
 /* picking one item and showing pockets content */	
 pick_and_show(Item):-
 	alive(Alive),
 	Alive = true, pick_and_show(Item, _).
-pick_and_show(Item, _):- pick(Item, _), !, nl, pockets, !.
+pick_and_show(Item, _):- pick(Item), fail; nl, pockets, !.
 	
 /* picking everything around */
 pick_all:-
 	alive(Alive),
 	Alive = true, pick_all(_).
 pick_all(_):-
-	can_pick, !,
+	can_pick, !, /* checking here as this willl be called recursively */
 	i_am_at(Place),
 	item_is_near_me(Place, Container),
 	can_be_picked(Container), !,
@@ -277,32 +318,49 @@ pick_all_and_show:-
 	alive(Alive),
 	Alive = true, pick_all_and_show(_).	
 pick_all_and_show(_):- pick_all(_), !; nl, pockets, !.
+
 	
 /* ================================= DROPPING objects ================================= */
 
 /* dropping individual items */	
 drop(Item):-
 	alive(Alive),
-	Alive = true, drop(Item, _).
-drop(Item, _):-
+	Alive = true, holding(_), !, drop_aux(Item).
+drop(Item):-
+	alive(Alive),
+	Alive = true,
+	contains(Container, Item), !,
+	not(holding(Container)),
+	format("~w ??? You can't drop what you don't have...", [Item]), fail.
+	
+/* helpers */	
+drop_aux(Item):-
 	i_am_at(Place),
 	contains(Container, Item),
-	holding(Container),
 	retract(holding(Container)),
-	assertz(at(Place, Container)), !.
+	assertz(at(Place, Container)),
+	format("Dropped: ~w~s", [Item, "\n"]),
+	holding(_), nl, pockets, !. /* show the pocket content only if anything is left */
+drop_aux(_):-
+	nl, write("Your pockets are empty now."), !.
 	
 /* dropping everything */
 drop_all:-
 	alive(Alive),
-	Alive = true, drop_all(_).
-drop_all(_):-
+	Alive = true, holding(_), !, 
+	not(drop_all_aux), /* negate the predicate as it will eventually fail */
+	nl, write("Your pockets are empty now.").
+drop_all:-
+	alive(Alive),
+	Alive = true, write("You don't have anything on you at the moment..."), fail.
+drop_all_aux:-
 	i_am_at(Place),
 	holding(Container),
 	contains(Container, Item),
 	retract(holding(Container)),
 	assertz(at(Place, Container)),
 	format("Dropped: ~w~s", [Item, "\n"]),
-	drop_all(_).
+	drop_all_aux.
 	
 /* ================================ EATING objects ==================================== */
 
@@ -328,13 +386,16 @@ drink(_):- write("You can't drink that..."), fail.
 /* listing all items currently held */
 pockets:-
 	alive(Alive),
-	Alive = true, pockets(_).	
+	Alive = true, pockets(_); 
+	count_item_in_pockets(Count),
+	Count > 0. /* succeed only if we have something in our pockets */	
 pockets(_):-
 	i_hold_anything, !, /* stop checking if I have nothing */
 	write("Checking pockets..."), nl,
 	holding(Container),
 	contains(Container, Item),
-	format("1 x ~w~s", [Item, "\n"]), fail.
+	format("1 x ~w~s", [Item, "\n"]), fail. /* letting it fail to backtrack and list all
+												items held at once */
 
 /* ================================= PAIRING objects ================================== */
 	

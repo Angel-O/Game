@@ -50,8 +50,7 @@ go(Direction) :-
 	assert(moved(just_arrived)),
 	format("You moved to ~w\n\n", [There]),
 	infection_damage,
-	not(look), !. /* not(look) because look always ends with a fail to force backtracking 
-					 and list all items at once */
+	look, !.
 
 /* =========================== secondary helper predicates ============================= */
 

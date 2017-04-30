@@ -6,7 +6,8 @@
 :- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
 	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
 	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
-	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1]).
+	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
+	item_is_inside_open_safe/2]).
 
 :- dynamic(holding/1).
 	
@@ -38,15 +39,17 @@ item_is_actually_there(Place, Container, Content):-
 	not(at(Place, Container)),
 	format("~w? ...are you dreaming??!~s", [Content, "\n"]),
 	fail.
+/* the item is inside un unlocked safe */
+item_is_inside_open_safe(Place, Item):-
+	at(Place, safe(Item, unlocked)),
+	Item \= empty.
 /* can only pick an item if the pockets are not full */
 can_pick:-
 	count_item_in_pockets(Count), 
 	still_space_in_pockets(Count), !,
 	not(max_reached(Count)),
 	Count < 3.
-/* helper predicates to count how many times the holding predicate succeeds */
-count_item_in_pockets(Count):-	
-	aggregate_all(count, holding(_), Count).
+/* helper to check there is still spcae TODO...needs improvement... */
 still_space_in_pockets(Count):- Count =< 3.
 /* the max nomber of items allowed was reached, print friendly message */
 max_reached(Count):-
@@ -118,18 +121,24 @@ does_damage(_, _):-
 /* checking that the player holds anything, print friendly message if not */	
 i_hold_anything:-
 	holding(_);
-	write("You have nothing, mate...keep looking."), fail.
+	write("You have nothing inside your pockets, mate...keep looking."), fail.
 	
 /* ==================================== grab helpers =================================== */
 
 /* grabbing an item from a safe */
 pick_from_safe(Item, Place):-
+	Item \= empty,
 	can_pick, 
 	Stuff = object(Item, Item),
 	assertz(holding(Stuff)),
 	retract(at(Place, safe(Item, unlocked))),
 	assertz(at(Place, safe(empty, unlocked))),
 	format("Picked: ~w~s", [Item, "\n"]), !.
+
+/* trying to grab from an empty safe */
+pick_from_safe(empty, _):-
+	named(Name),
+	format("Hey ~w wake up! The safe is empty !!!~s", [Name, "\n"]), fail, !.
 	
 /* ============================= shared helpers (unlock & grab) ======================== */
 
@@ -141,6 +150,12 @@ is_there_even_a_safe:-
 safe_is_not_there(Place):-
 	not(at(Place, safe(_, _))),
 	write("There isn't even a safe here..., try another place"), nl, fail, !.
+	
+/* ============================ shared helpers (pick & pockets) ======================== */
+	
+/* helper predicates to count how many times the holding predicate succeeds */
+count_item_in_pockets(Count):-	
+	aggregate_all(count, holding(_), Count).
 	
 /* ========== shared helpers (all top level predicates defined in main file) =========== */
 
