@@ -3,35 +3,38 @@
  own style of fighting that depends on life and behaviour and can vary during the fight.
 */
 
-:- module(fight, [fighting/1, punch/0, attacked_by/0]).
+:- module(fight, [fighting/1, punch/0, assaulted/0]).
 
 :- dynamic(fighting/1).
 
 /* ================================ enemy attacking =================================== */
-/* enemies will hide preventing you from accessing a new area: 
-TODO make ambush harmless to some degree, refactor this... */
 
-/* types of attacks */
-attacked_by:-
+/* enemies will hide and attempt to assault you, preventing you from accessing a new room. 
+Unless you wear the specs (fully equipped) you won't be able to anticipate their attack */
+
+assaulted:-
 	i_am_at(Place),
 	moved(Direction),
 	at_area(Place, Direction, enemy(Type, Id, _, _)),
-	attacked_by(Type, Id), !, 
-	format("(You can't go ~w without fighting!)", [Direction]).
+	assaulted_by(Type, Id, Direction).
 	
-attacked_by(Type, Id):-
-	life_points(Life),
-	maxPower(Type, Value),
-	random(1, Value, Enemy_power),
-	NewLife is Life - Enemy_power,
-	retract(life_points(_)),
-	assert(life_points(NewLife)),
-	format("You have been attacked by: ~w...\n", [Type]),
-	format("New life: ~w~s", [NewLife, "\n"]),
-	assert(fighting(Id)),
-	alive(Alive), Alive == true, !,
-	drop_item(Enemy_power). /* depending on the power of the attack you may lose items */
+assaulted_by(Type, Id, Direction):-	
+	unexpected_assault(Type, Id, Direction); /* note the disjunction */
+	expected_assault(Type, Id, Direction).
 
+/* unexpected assault */
+unexpected_assault(Type, Id, Direction):-
+	not(holding(object(specs, lens))),
+	attacked_by(Type, Id), !, 
+	format("(You can't go ~w without fighting!)", [Direction]), !.
+
+/* expected assault */	
+expected_assault(Type, Id, Direction):-
+	holding(object(specs, lens)),
+	assert(fighting(Id)),
+	format("Well done, you spot a: ~w...\n", [Type]),
+	format("(...but you can't go ~w without fighting!)", [Direction]), !.
+	
 /* max power depends on enemy type */	
 maxPower(evil_bat, Value):- Value is 3.
 maxPower(zoo_keeper, Value):- Value is 4.
@@ -82,13 +85,14 @@ reaction(Enemy_type, Id, Enemy_life, Behaviour):-
 	reaction_type(Reaction_Type),
 	react(Enemy_type, Id, Reaction_Type , Chance).	
 	
-/* reaction types: fighting back (see attacked_by predicate), stealing or bailing out */	
+/* reaction types: fighting back (see attacked_by predicate), 
+stealing (see steal predicate) or bailing out (see bail predicate) */	
 reaction_type(Reaction):-
 	random(0, 10, Value),
 	select_reaction(Reaction, Value).
 		
 /* helper predicate to select a reaction type */
-select_reaction(Reaction, 0):-
+select_reaction(Reaction, _):-
 	Reaction = fight.
 select_reaction(Reaction, _):-
 	Reaction = steal.
@@ -111,6 +115,20 @@ react(Enemy_type, Id, Reaction_Type, Chance):-
 	Reaction_Type == bail,
 	bail(Enemy_type, Id), !.
 react(_, _, _, _).
+
+/* enemy attacking */	
+attacked_by(Type, Id):-
+	life_points(Life),
+	maxPower(Type, Value),
+	random(1, Value, Enemy_power),
+	NewLife is Life - Enemy_power,
+	retract(life_points(_)),
+	assert(life_points(NewLife)),
+	format("You have been attacked by: ~w...\n", [Type]),
+	format("New life: ~w~s", [NewLife, "\n"]),
+	assert(fighting(Id)),
+	alive(Alive), Alive == true, !,
+	drop_item(Enemy_power). /* depending on the power of the attack you may lose items */
 
 /* enemies running away */
 bail(Enemy_type, Id):-
@@ -149,6 +167,13 @@ attack_chances(evasive, Chance):-
 punch:- 
 	alive(Alive),
 	Alive = true, punch(_), !.
+punch:-
+	alive(Alive),
+	Alive = true,
+	i_am_at(Place),
+	moved(Area),
+	not(at_area(Place, Area, _)), !,
+	format("What are you doing? No one is around...\n"), fail.
 punch:-
 	alive(Alive),
 	Alive = true,

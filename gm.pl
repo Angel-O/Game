@@ -236,8 +236,8 @@ inspect:-
 	alive(Alive),
 	Alive = true, inspect(_).
 inspect:-
-	moved(Area),
-	connected(_, Area, _),! ,
+	%moved(Area),
+	%connected(_, Area, _),! ,
 	not(holding(object(specs, lens))),
 	write("You need to pair specs and lens to be able to see more!"), fail, !.
 inspect(_):-
@@ -246,7 +246,7 @@ inspect(_):-
 	write("Inspecting enemies...:"), nl,
 	at_area(Here, Area, enemy(Type, Id, _, _)),
 	list_enemy_items(Id, Item),
-	format("1 x ~w, (held by ~w)\n", [Item, Type]), fail.
+	format("1 x ~w, (held by ~w)\n", [Item, Type]), fail, !.
 inspect(_):-
 	i_am_at(Here), moved(Area),
 	holding(object(specs, lens)),
@@ -349,7 +349,7 @@ drop_all:-
 	alive(Alive),
 	Alive = true, holding(_), !, 
 	not(drop_all_aux), /* negate the predicate as it will eventually fail */
-	nl, write("Your pockets are empty now.").
+	nl, write("Your pockets are empty now.\n").
 drop_all:-
 	alive(Alive),
 	Alive = true, write("You don't have anything on you at the moment..."), fail.

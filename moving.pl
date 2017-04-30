@@ -5,7 +5,7 @@
 
 :- module(moving, [n/0, s/0, w/0, e/0, moved/1]).
 
-use_module(fight, [fighting/1, attacked_by/0]).
+use_module(fight, [fighting/1, assaulted/0]).
 
 /* ====================================== aliases ==================================== */
 /* moving north */
@@ -35,11 +35,11 @@ e(_) :- go(east), !.
 /* =============================== going somewhere ==================================== */
 
 go(Direction) :-
-	retractall(fighting(_)),
+	retractall(fight:fighting(_)),
 	retractall(moved(_)),
 	assert(moved(Direction)),	
 	i_am_at(Here), 
-	not(fight:attacked_by), !,
+	not(fight:assaulted), !,
 	life_points(Life), Life > 0, !, /* additional check necessary to prevent moving to 
 										next area */
 	can_go_from_here(Here, Direction), 
