@@ -90,7 +90,8 @@ does_damage(Content, rotten):-
 	format("You ate: ~s ~w. New life: ~w", [rotten, Content, NewLife]),
 	alive(Alive), Alive == true, !.
 
-/* infected food will cause a progressive drop (-1) of life pts. */	
+/* infected food will cause a progressive drop (-1) of life pts suffered each time the
+player moves to a new area or room. */	
 does_damage(Content, infected):- 
 	retractall(health(_)),
 	assert(user:health(infected)),
@@ -98,7 +99,7 @@ does_damage(Content, infected):-
 	write("Find the elisir to heal or you will constantly lose life points."),
 	alive(Alive), Alive == true, !.
 	
-/* good stuff to eat */
+/* good stuff to eat will add +1 to the life points */
 does_damage(_, healthy):- 
 	life_points(Life),
 	NewLife is Life + 1,

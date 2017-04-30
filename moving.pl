@@ -56,7 +56,7 @@ go(Direction) :-
 /* =========================== secondary helper predicates ============================= */
 
 /* checking that I can actually go in the specified direction: if I the direction is not 
-valid evaluate the second sub-goal won't be evaluated */ 		
+valid the second sub-goal won't be evaluated */ 		
 can_go_from_here(Here, Direction):-
  	direction_is_valid(Here, Direction), !,
  	door_is_not_locked(Here, Direction). 

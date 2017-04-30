@@ -26,6 +26,9 @@
 /* this allows the user to hit enemies */
 :- use_module(fight, [punch/0]).
 
+/* ...... */
+:- use_module(utils, [shortest/3]).
+
 /* importing helpers predicte that should not be invoked directly by the user */
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
 	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
@@ -119,6 +122,30 @@ at(grey_area, object(lens, _)).
 at_area(grey_area, north, enemy(evil_bat, b1, 2, aggressive)).
 at_area(grey_area, north, enemy(gorilla, g1, 20, aggressive)).
 at_area(grey_area, north, enemy(zoo_keeper, z1, 7, aggressive)).
+
+
+enemy(gorilla, g1, 26, aggressive).
+enemy(gorilla, g2, 23, aggressive).
+enemy(gorilla, g3, 26, aggressive).
+enemy(gorilla, g4, 22, aggressive).
+
+enemy(evil_bat, b1, 8, aggressive).
+enemy(evil_bat, b2, 9, aggressive).
+enemy(evil_bat, b3, 7, aggressive).
+enemy(evil_bat, b4, 12, aggressive).
+
+enemy(zoo_keeper, z1, 14, aggressive).
+enemy(zoo_keeper, z2, 22, aggressive).
+enemy(zoo_keeper, z3, 16, aggressive).
+enemy(zoo_keeper, z4, 15, aggressive).
+
+
+place_enemies(Enemies):-
+	Enemies = [H|T].
+	shortest(grey_area, jungle, Path), /* or before the jungle... */
+	length(Path, Count),
+	Path = [F,S|R], /* first, second, rest */
+	H = enemy(Type, Id, Life, _).
 
 enemy_holds(b1, object(lens, _)).
 enemy_holds(b1, object(shield, _)).
