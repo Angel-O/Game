@@ -1,44 +1,76 @@
-:- module(enemy, [place_enemy/0, equip_enemy/0, enemy_holds/2]).
+:- module(enemy, [place_enemy/0, equip_enemy/0, enemy_holds/2, enemy_moves/1]).
 
 :- dynamic(enemy_holds/2).
 
 
 /* =============================== PLACING ENEMIES ==================================== */
 
-
-/* randomly placing enemies in the maze */
+/* randomly placing enemies in the maze */ /* TODO verify... */
 place_enemy:-
-	write("Enemies hiding..."), nl,
+
 	retractall(user:at_area(_, _, _)),
 	
-	place_enemy([
-		
-		/* list of all enemies in the game */
+	/* sorting all enemies in the game from the most to the less dangerous */	
+	sort_enemies([		
 		enemy(gorilla, g1, 26, aggressive), enemy(gorilla, g2, 23, aggressive),
 		enemy(gorilla, g3, 26, aggressive), enemy(gorilla, g4, 22, aggressive),
 		enemy(evil_bat, b1, 8, aggressive), enemy(evil_bat, b2, 9, aggressive),
 		enemy(evil_bat, b3, 7, aggressive), enemy(evil_bat, b4, 12, aggressive),
 		enemy(zoo_keeper, z1, 14, aggressive), enemy(zoo_keeper, z2, 22, aggressive),
-		enemy(zoo_keeper, z3, 16, aggressive), enemy(zoo_keeper, z4, 15, aggressive)
-		],	
+		enemy(zoo_keeper, z3, 16, aggressive), enemy(zoo_keeper, z4, 15, aggressive)], 
+	Sorted),
+	
+	reverse(Sorted, Enemies),
+	
+	Enemies = [_, _, _, _|Remaining_Enemies], 
+	
+	subtract(Enemies, Remaining_Enemies, Four_Most_Dangerous),
+	
+	/* all rooms that can host an enemy: excluding jungle and grey_area */
+	scrumble_locations([
+		room1, room2, room3, room4, room5, room6, room7, room8, room9, room10],
+		Locations),	
+	
+	shortest(grey_area, jungle, Path),
+	
+	subtract(Path, [grey_area, jungle], Allowed_locations_in_path),
+	
+	/* placing the most dangerous enemies on the shortest path */
+	place_most_dangerous(
+		Four_Most_Dangerous,
+		Allowed_locations_in_path,
+		[north, south, west, east]), /* all possible directions */
 			
-		/* all rooms that can host an enemy: excluding jungle and grey_area */
-		[room1, room2, room3, room4, room4, room5, room6, room7, room8, room9, room10],
-				
-		/* all possible directions */
-		[north, south, west, east]); write("...completed..."), nl. /* to do verify... */
+	/* placing the rest randomly on the maze */
+	place_enemy(	
+		Remaining_Enemies,			
+		Locations,						
+		[north, south, west, east]); /* all possible directions */
+		
+	not(fail).
+
 
 /* selecting a random enemy ad random locations and areas (in each location) where 
-the enemies will be hiding*/
+the enemies will be hiding */
+place_most_dangerous(Most_dangerous, Path, Directions):-
+	place_enemy(Most_dangerous, Path, Directions).
+	
+place_most_dangerous(_, _, _). /* making the predicate always successful to 
+								be able to place the remaining enemiess */
+
+
+/* selecting a random enemy ad random locations and areas (in each location) where 
+the enemies will be hiding */
 place_enemy(Enemies, Locations, Directions):-
 	random_select(Enemy, Enemies, Other_enemies),
-	random_member(Location, Locations),
+	%random_member(Location, Locations),
+	next_location(Location, Locations),
 	random_member(Area, Directions), !,
 	area_is_valid(Area, Location, Valid_area, Directions), !,
 	assertz(user:at_area(Location, Valid_area, Enemy)), /* randomly placing enemies */
 	place_enemy(Other_enemies, Locations, Directions).
 
-/* when picking a random area we need to make sure that the area(direction) actaully
+/* when picking a random area we need to make sure that the area(direction) actually
 makes sense, that is it actually connects to another room: not all directions lead to 
 room */	
 area_is_valid(Area, Location, Valid_area, Directions):-
@@ -46,12 +78,20 @@ area_is_valid(Area, Location, Valid_area, Directions):-
 	connected(Location, Valid_area, _);
 	area_is_valid(Area, Location, Valid_area, Directions), !.
 	
-	
-% at_area(grey_area, north, enemy(evil_bat, b1, 2, aggressive)).
-% at_area(grey_area, north, enemy(gorilla, g1, 20, aggressive)).
-% at_area(grey_area, north, enemy(zoo_keeper, z1, 7, aggressive)).
+next_location(Location, Locations):-
+	random_member(Location, Locations),
+	not(user:at_area(Location, _, _)); /* pick another location if the one 
+									selected already have an enemy anywhere */
+	random_select(Location, Locations, Others),
+	next_location(Location, Others);
+	random_member(Location, Locations), !.
+
+scrumble_locations(Locations, Scrumbled):-
+	random_permutation(Locations, Scrumbled).
 
 
+
+/* ============================= EQUIPPING ENEMIES ==================================== */
 
 /* enemies holding precious objects should be away from the shortest path */
 /* enemies that tend to react(aggressive behaviour) and have more life points should be 
@@ -67,14 +107,55 @@ equip_enemy:-
 	assert(enemy_holds(z2, object(shield, _))), assert(enemy_holds(z3, object(lens, _))), 
 	assert(enemy_holds(z4, food(banana, rotten))).
 	
+/* =============================== ENEMIES MOVING ===================================== */	
+
+/* if an aggressive enemy is close to the shortest path to the jungle it will move there
+to make your life harder. This will happen only for the first aggressive enemy found */
+enemy_moves(UserLocation):-
+	shortest(UserLocation, jungle, Path), /* get the shortest path */
+	user:at_area(EnemyPlace, Area, Enemy),
+	Enemy = enemy(Type, Id, Life, aggressive),
+	connected(AnotherLocation, _, EnemyPlace), /* another place connected to current 
+												enemy's location */
+	member(AnotherLocation, Path), /* another location is on the path */
+	connected(AnotherLocation, Direction, UserLocation), /* another location is the next
+															location in the path */
+	retract(user:at_area(EnemyPlace, Area, Enemy)),
+	assert(user:at_area(AnotherLocation, Direction, enemy(Type, Id, Life, aggressive))),
 	
+	/* only the first aggressive one TODO: remove the output */ 
+	format("~w moved from ~w to ~w...", [Id, EnemyPlace, AnotherLocation ]), nl, !. 
 
+enemy_moves(_). /* the predicate will always succeed */
+	
+/* =============================== SORTING ENEMIES ==================================== */
 
+/* sorting the enemies based on the criteria defined below */	
+sort_enemies(Unsorted, Sorted):-
+	sort_enemies(Unsorted, [], Sorted).
+sort_enemies(Unsorted, Accumulator, Sorted):-
+	Unsorted = [H|[]],
+	append([H], Accumulator, Sorted).	
+sort_enemies(Unsorted, Accumulator, Sorted):-
+	Unsorted = [_|_],
+	find_most_dangerous(Unsorted, Most),
+	append([Most], Accumulator, NewAccumulator),
+	subtract(Unsorted, NewAccumulator, NewUnsorted),
+	sort_enemies(NewUnsorted, NewAccumulator, Sorted), !.
 
+/* finding the most dangerous enemies in a list of enemies */	
+find_most_dangerous(EnemyList, Most):-
+	EnemyList = [H|T], Current_Most = H,
+	find_most_dangerous(T, Current_Most, Most).	
+find_most_dangerous(EnemyList, Current_Most, Most):-
+	EnemyList = [H|[]],
+	more_dangerous(H, Current_Most, Most).
+find_most_dangerous(EnemyList, Current_Most, Absolute_Most):-
+	EnemyList = [H|T],
+	more_dangerous(H, Current_Most, New_Most),
+	find_most_dangerous(T, New_Most, Absolute_Most), !.	
 
-
-
-
+/* testing */
 do_sort:-
 	sort_enemies([enemy(gorilla, g1, 26, aggressive),enemy(gorilla, g2, 23, aggressive),
 		enemy(gorilla, g3, 26, aggressive), enemy(gorilla, g4, 22, aggressive),
@@ -84,11 +165,13 @@ do_sort:-
 		enemy(zoo_keeper, z3, 16, aggressive), enemy(zoo_keeper, z4, 15, aggressive)], 
 	Enemies),
 	list_out(Enemies).
-
 list_out([]):- nl.	
 list_out([H|T]):-
 	write(H), nl, list_out(T).
 
+/* =============================== SORTING CRITERIA =================================== */
+
+/* TODO,  make it independent of the type...adding a weight */
 /* gorilla are more dangerous than any other enemy */
 more_dangerous(A, B, Dangerous):-
 	A = enemy(gorilla, _, _, _),
@@ -127,6 +210,33 @@ more_dangerous(A, B, B):-
 	A = enemy(Type, _, Life, Behaviour),
 	B = enemy(Type, _, Life, aggressive),
 	Behaviour \= aggressive, !.
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ====================================== UNUSED ====================================== */
+
+all_locations_have_at_least_one_enemy([]).
+all_locations_have_at_least_one_enemy([H]):-
+	user:at_area(H, _, _).
+all_locations_have_at_least_one_enemy([H|T]):-
+	user:at_area(H, _, _),
+	all_locations_have_at_least_one_enemy(T).
 	
 
 /* items values */
@@ -173,29 +283,7 @@ more_valuable(A, B, B):-
 
 
 
-sort_enemies(Unsorted, Sorted):-
-	sort_enemies(Unsorted, [], Sorted).
-sort_enemies(Unsorted, Accumulator, Sorted):-
-	Unsorted = [H|[]],
-	append([H], Accumulator, Sorted).	
-sort_enemies(Unsorted, Accumulator, Sorted):-
-	Unsorted = [_|_],
-	find_most_dangerous(Unsorted, Most),
-	append([Most], Accumulator, NewAccumulator),
-	subtract(Unsorted, NewAccumulator, NewUnsorted),
-	sort_enemies(NewUnsorted, NewAccumulator, Sorted), !.
 
-
-find_most_dangerous(EnemyList, Most):-
-	EnemyList = [H|T], Current_Most = H,
-	find_most_dangerous(T, Current_Most, Most).	
-find_most_dangerous(EnemyList, Current_Most, Most):-
-	EnemyList = [H|[]],
-	more_dangerous(H, Current_Most, Most).
-find_most_dangerous(EnemyList, Current_Most, Absolute_Most):-
-	EnemyList = [H|T],
-	more_dangerous(H, Current_Most, New_Most),
-	find_most_dangerous(T, New_Most, Absolute_Most), !.
 	
 find_most_valuable(EnemyList, Most):-
 	EnemyList = [H|T], Current_Most = H,

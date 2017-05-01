@@ -6,6 +6,7 @@
 :- module(moving, [n/0, s/0, w/0, e/0, moved/1]).
 
 use_module(fight, [fighting/1, assaulted/0]).
+use_module(enemy, [enemy_moves/1]).
 
 /* ====================================== aliases ==================================== */
 /* moving north */
@@ -49,6 +50,7 @@ go(Direction) :-
 	retract(moved(Direction)),
 	assert(moved(just_arrived)),
 	format("You moved to ~w\n\n", [There]),
+	enemy:enemy_moves(There),
 	infection_damage,
 	look, !.
 

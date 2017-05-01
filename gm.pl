@@ -38,12 +38,12 @@
 	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
 	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
 	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
-	item_is_inside_open_safe/2]).
+	item_is_inside_open_safe/2, process_name/2]).
 
 /* ....... */
 max_life(35).
 
-/* ================================== Game reset ====================================== */
+/* ================================== Game misc ======================================= */
 
 /* this section will reset the game ot the initital state */
 init:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(at_area(_, _, _)),  
@@ -59,80 +59,98 @@ initialize:- assert(i_am_at(grey_area)),
 			 assert(health(healthy)),
 			 equip_enemy,
 			 place_enemy,
+			 place_items,
+			 place_items_debug,
 			 select_name.
 
-reset :- [gm], [enemy], [moving], [fight], [helpers], [utils].
-			 
-/* ================================ Player predicates  ================================ */
-	
-me:-
-	named(Name),
-	life_points(Life),
-	format("Name: ~w, Life: ~w\n", [Name, Life]).
-life :- 
-	life_points(X), 
-	write(X).
+/* reloads all files and restart the game */
+reset :- [gm], [enemy], [moving], [fight], [helpers], [utils], init.
 
-where :-
-	i_am_at(Place),
-	moved(Area),
-	Area == just_arrived,
-	format("Current location: ~w, ~w", [Place, Area]), !.
-where :-
-	i_am_at(Place),
-	moved(Area),
-	Area == nowhere,
-	format("Current location: ~w, ~w...", [Place, Area]), !.
-where :-
-	i_am_at(Place),
-	moved(Area),
-	Area \= just_arrived,
-	format("Current location: ~w, ~w side", [Place, Area]), !.
+/* start the game */
+start :- init.
 
+/* sets an invalid value for life points then tries moving north... */
+lose :- retractall(life_points(_)), assert(life_points(-1)), n.
+
+/* abandoning the game */
+quit :- halt.
+
+/* selecting the placyer's name */	
 select_name :-
+	alive(Alive),
+	Alive = true, select_name(_).
+select_name(_) :-
 	write("Type your name (lower-case, please): "),
 	read(Value),
 	process_name(Value, Name),
 	retractall(named(_)),
 	assert(named(Name)),
-	format(`Hi ~w! Welcome to aMazeInMonkey.`, [Name]).
+	life_points(X),
+	format(`Hi ~w! Available life points: ~w.`, [Name, X]).
+
+			 
+/* ============================ Player queries predicates ============================= */
+
+/* print name and life points. Not using alive check here to prevent stack overflow */	
+me :-
+	named(Name),
+	life_points(Life),
+	format("Name: ~w, Life: ~w\n", [Name, Life]).
 	
-process_name(Value, Name):-
-	Value = anything_really, /* checking if the value is bound the actual 
-								value is not important */
-	Name = "monkey lover", !.
-process_name(Value, Name):-	Name = Value.
+/* info on current location and area */	
+where :-
+	alive(Alive),
+	Alive = true, where(_).
+where(_) :-
+	i_am_at(Place),
+	moved(Area),
+	Area == just_arrived,
+	format("Current location: ~w, ~w", [Place, Area]), !.
+where(_) :-
+	i_am_at(Place),
+	moved(Area),
+	Area == nowhere,
+	format("Current location: ~w, ~w...", [Place, Area]), !.
+where(_) :-
+	i_am_at(Place),
+	moved(Area),
+	Area \= just_arrived,
+	format("Current location: ~w, ~w side", [Place, Area]), !.
+
+/* listing available directions and destinations */		
+to :- 
+	alive(Alive),
+	Alive = true, to(_);
+	i_am_at(Place), 
+	connected(Place, _, _), !.	
+to(_):-
+	write("Available directions: "), nl, nl,
+	i_am_at(Place),
+	connected(Place, Area, Destination),
+	Destination \= jungle,
+	format("~w ==> ~w ~s", [Area, Destination, "\n"]), fail.
+
 
 /* ================================== START FACTS ===================================== */
-
-:- init.
 
 /* locations */
 locked(room8, north). locked(room1, north). /* to be removed.... */
 
-/* items' location and status-description */	
-at(room10, object(key_to_jungle, _)).
-at(room5, safe(magic_wand, locked)).
-at(room7, food(banana, healthy)).
-at(room1, food(banana, healthy)).
-at(room2, food(banana, healthy)).
-at(room4, food(banana, healthy)).
-at(room8, food(banana, rotten)). 
-at(room3, food(banana, infected)). 
-at(room5, object(rotten_banana_detector, _)).
-at(room6, object(key_to_safe, _)).
-at(room9, safe(magic_wand, locked)).
+/* items' location and status-description */
+place_items:- assertz(at(room10, object(key_to_jungle, _))), 
+	assertz(at(room5, safe(magic_wand, locked))), assertz(at(room7, food(banana, healthy))), 
+	assertz(at(room1, food(banana, healthy))), assertz(at(room2, food(banana, healthy))), 
+	assertz(at(room4, food(banana, healthy))), assertz(at(room8, food(banana, rotten))),
+	assertz(at(room3, food(banana, infected))), assertz(at(room5, object(rotten_banana_detector, _))), 
+	assertz(at(room6, object(key_to_safe, _))), assertz(at(room9, safe(magic_wand, locked))).
 
 /* debug */
-at(grey_area, food(banana, rotten)).
-at(grey_area, drink(elisir, _)).
-at(grey_area, food(banana, infected)).
-at(grey_area, food(apple, healthy)).
-at(grey_area, object(key_to_safe, _)).
-at(grey_area, safe(magic_glasses, locked)).
-at(room1, safe(key_to_jungle, locked)).
-at(grey_area, object(specs, unequipped)).
-at(grey_area, object(lens, _)).
+place_items_debug:-
+	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, drink(elisir, _))),
+	assertz(at(grey_area, food(banana, infected))), assertz(at(grey_area, food(apple, healthy))),
+	assertz(at(grey_area, object(key_to_safe, _))), assertz(at(grey_area, safe(magic_glasses, locked))),
+	assertz(at(room1, safe(key_to_jungle, locked))), assertz(at(grey_area, object(specs, unequipped))),
+	assertz(at(grey_area, object(lens, _))).
 
 
 /* defining items as containers */
@@ -211,6 +229,10 @@ inspect(_):-
 
 /* ================================= PICKING objects ================================== */
 
+/* picking individual items, whichever is first */
+pick:-
+	alive(Alive),
+	Alive = true, pick(Item).
 /* picking individual items */
 pick(Item):-
 	alive(Alive),
@@ -278,6 +300,10 @@ pick_all_and_show(_):- pick_all(_), !; nl, pockets, !.
 	
 /* ================================= DROPPING objects ================================= */
 
+/* dropping individual items, whichever is first */
+drop:-
+	alive(Alive),
+	Alive = true, drop(Item).
 /* dropping individual items */	
 drop(Item):-
 	alive(Alive),
@@ -287,7 +313,7 @@ drop(Item):-
 	Alive = true,
 	contains(Container, Item), !,
 	not(holding(Container)),
-	format("~w ??? You can't drop what you don't have...", [Item]), fail.
+	write("You can't drop what you don't have..."), fail.
 	
 /* helpers */	
 drop_aux(Item):-
@@ -320,7 +346,16 @@ drop_all_aux:-
 	
 /* =========================== EATING & DRINKING objects ============================== */
 
-/* eating items TODO allow only food to be eaten */
+/* eating the first item currently held */
+eat:-
+	alive(Alive),
+	Alive = true, holding(_), eat(Item), ! .
+eat:-
+	alive(Alive),
+	Alive = true, not(holding(_)),
+	write("You have nothing, go and get something!"), fail, !.
+	
+/* eating a particular item TODO allow only food to be eaten */
 eat(Item):-
 	alive(Alive),
 	Alive = true, eat(Item, _).
@@ -417,5 +452,47 @@ grab(_):-
 	pick_from_safe(Content, Place) , !.
 
 
+/* ================================= INSTRUCTIONS ===================================== */
 
+/* list of available commands */	
 
+instructions:-	
+	write("Commands available to you:"), nl, nl,
+	format("00. instructions. [~s]", ["show this menu"]), nl,
+	format("01. start. [~s]", ["start the game"]), nl,
+	format("02. reset. [~s]", ["restart the game"]), nl,
+	format("03. n. [~s]", ["move north"]), nl,
+	format("04. s. [~s]", ["move south"]), nl,
+	format("05. w. [~s]", ["move west"]), nl,
+	format("06. e. [~s]", ["move east"]), nl,
+	format("07. look. [~s]", ["look around the location you are in and list all objects"]), nl,
+	format("08. inspect. [~s]", ["like look, but allows to view more: only available after pairing specs and lens"]), nl,
+	format("09. pick. [~s]", ["try to pick the first item found"]), nl,
+	format("09. pick(item). [~s]", ["pick the item specified, if there is enough space in your pockets"]), nl,
+	format("10. pick_all. [~s]", ["pick all the items around"]), nl,
+	format("11. pockets. [~s]", ["show what is currently held"]), nl,
+	format("12. eat(item). [~s]", ["eat a currently held item, if edible"]), nl,
+	format("13. drink(item). [~s]", ["idiomatic replacement from eat should you be in possess of an elisir"]), nl,
+	format("14. pick_and_show(item). [~s]", ["pick an item and show the pockets content"]), nl,
+	format("15. pick_and_all_show. [~s]", ["pick all the items around and show the pockets content"]), nl,
+	format("18. drop. [~s]", ["drops the first item in the pockets, if any are held"]), nl,
+	format("18. drop(item). [~s]", ["drops the specified item, if currently held"]), nl,
+	format("19. drop_all. [~s]", ["drop all the items currently held"]), nl,
+	format("20. pair. [~s]", ["pair specs and lens to be able to use the inspect command"]), nl,
+	format("21. punch. [~s]", ["hit the enemy!"]), nl,
+	format("22. unlock. [~s]", ["unlock an open safe"]), nl,
+	format("23. grab. [~s]", ["grab an item from an open safe. You can also use the pick command if you specify the item"]), nl,
+	format("24. me. [~s]", ["print info about the player, name and life points"]), nl,
+	format("25. where. [~s]", ["show current location and area"]), nl,
+	format("26. select_name. [~s]", ["pick a name"]), nl,
+	format("27. to. [~s]", ["show available directions and destinations from the current location"]), nl,
+	format("28. lose. [~s]", ["ends the game"]), nl,
+	format("29. quit. [~s]", ["abandon the game (equivalent of Prolog halt command)"]), nl, nl.
+
+/* ================================ LAUNCH THE GAME =================================== */
+
+/* provide the instructions at game start */
+
+:- write("Welcome to aMazeInMonkey!! Use the start command to begin the adventure!"), nl,
+   write("Once started, use any of the commands listed below (followed by a dot), hit enter and see what happens"),
+   write(" (all lower-case please)!"), nl, nl, instructions.	

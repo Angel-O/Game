@@ -7,7 +7,7 @@
 	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
 	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
 	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
-	item_is_inside_open_safe/2]).
+	item_is_inside_open_safe/2, process_name/2]).
 
 :- dynamic(holding/1).
 	
@@ -140,6 +140,15 @@ pick_from_safe(Item, Place):-
 pick_from_safe(empty, _):-
 	named(Name),
 	format("Hey ~w wake up! The safe is empty !!!~s", [Name, "\n"]), fail, !.
+	
+/* ======================= Player queries predicates helpers =========================== */
+
+/* using default name or name specifed by user */
+process_name(Value, Name):-
+	Value = anything_really, /* checking if the value is bound the actual 
+								value is not important */
+	Name = "monkey lover", !.
+process_name(Value, Name):-	Name = Value.
 	
 /* ============================= shared helpers (unlock & grab) ======================== */
 
