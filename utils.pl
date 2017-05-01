@@ -48,13 +48,13 @@ all_paths_dir_aux(Start, Finish, Accumulator, Path):-
 /* getting the shortest path between two arbitrary locations!!! */
 shortest(Start, Finish, Shortest):-
 	retractall(shortest_so_far(_)),
-	all_paths_dir(Start, Finish, First),
+	all_paths(Start, Finish, First),
 	assert(shortest_so_far(First)),
 	shortest(Start, Finish, First, _);
 	shortest_so_far(Shortest), !.
 	
 shortest(Start, Finish, First, _):-
-	all_paths_dir(Start, Finish, Next),
+	all_paths(Start, Finish, Next),
 	Next \= First,
 	length(Next, Next_Length),
 	shortest_so_far(Current_shortest),

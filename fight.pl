@@ -40,16 +40,6 @@ maxPower(evil_bat, Value):- Value is 3.
 maxPower(zoo_keeper, Value):- Value is 4.
 maxPower(gorilla, Value):- Value is 6.
 	
-/* punch aftermaths: you will drop an item if the blow was too strong */
-drop_item(Enemy_power):-
-	Enemy_power >= 4,
-	holding(Container),
-	contains(Container, Item),
-	drop(Item),
-	format("That punch made you drop a: ~w\n", [Item]), !.
-drop_item(_). /* even if we have nothing to drop this predicate 
-				 is always true as the attack needs to be successful */
-
 /* ============================= enemy dodging attacks ================================ */
 
 /* enemies can dodge your punches: TODO change chances of dodging based on player life points */
@@ -152,6 +142,18 @@ steal(Type, Id):-
 	assertz(enemy_holds(Id, Item)),
 	format("The ~w just robbed you!~sSay goodbye to your ~w", [Type, "\n", Content]), !.
 steal(_,_).
+
+
+/* punch aftermaths: you will drop an item if the blow was too strong */
+drop_item(Enemy_power):-
+	Enemy_power >= 4,
+	holding(Container),
+	contains(Container, Item),
+	write("That hit made you drop an item!!\n"),
+	drop(Item), !.
+drop_item(_). /* even if we have nothing to drop this predicate 
+				 is always true as the attack needs to be successful */
+
 
 /* the probability to be attacked depends on the enemy's behaviour */
 attack_chances(aggressive, Chance):-

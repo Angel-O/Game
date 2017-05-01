@@ -11,9 +11,10 @@
 :- dynamic(helpers:holding/1).
 :- dynamic(life_points/1).
 :- dynamic(moving:moved/1).
-:- dynamic(enemy_holds/2).
+:- dynamic(enemy:enemy_holds/2).
 :- dynamic(health/1).
 
+/* TODO add win predicate.... */
 
 /* ========================== Importing files and modules ============================= */
 
@@ -29,6 +30,9 @@
 /* ...... */
 :- use_module(utils, [shortest/3]).
 
+/* ...... */
+:- use_module(enemy, [place_enemy/0, equip_enemy/0, enemy_holds/2]).
+
 /* importing helpers predicte that should not be invoked directly by the user */
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
 	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
@@ -36,18 +40,29 @@
 	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
 	item_is_inside_open_safe/2]).
 
+/* ....... */
+max_life(35).
+
 /* ================================== Game reset ====================================== */
 
-/* this section will reset the game ot the initital state when the game is reloaded */
+/* this section will reset the game ot the initital state */
 init:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(at_area(_, _, _)),  
 	retractall(life_points(_)), retractall(holding(_)), retractall(named(_)),  
-	retractall(moved(_)), retractall(locked(_)), retractall(enemy_holds(_, _)).
+	retractall(moved(_)), retractall(locked(_)), retractall(enemy_holds(_, _)),
+	initialize.
 
-/* =================================== Game misc  ===================================== */
+/* setting up the initial conditions */	
+initialize:- assert(i_am_at(grey_area)), 
+			 assert(moving:moved(nowhere)),
+			 max_life(Max),
+			 assert(life_points(Max)), 
+			 assert(health(healthy)),
+			 equip_enemy,
+			 place_enemy,
+			 select_name.
 
-win :- i_am_at(jungle).		
-reset :- [gm], [moving], [fight], [helpers], [utils], init.
-
+reset :- [gm], [enemy], [moving], [fight], [helpers], [utils].
+			 
 /* ================================ Player predicates  ================================ */
 	
 me:-
@@ -90,9 +105,7 @@ process_name(Value, Name):-	Name = Value.
 
 /* ================================== START FACTS ===================================== */
 
-:- init, select_name.
-
-i_am_at(grey_area). moving:moved(nowhere). life_points(50). health(healthy).
+:- init.
 
 /* locations */
 locked(room8, north). locked(room1, north). /* to be removed.... */
@@ -120,64 +133,7 @@ at(grey_area, safe(magic_glasses, locked)).
 at(room1, safe(key_to_jungle, locked)).
 at(grey_area, object(specs, unequipped)).
 at(grey_area, object(lens, _)).
-at_area(grey_area, north, enemy(evil_bat, b1, 2, aggressive)).
-at_area(grey_area, north, enemy(gorilla, g1, 20, aggressive)).
-at_area(grey_area, north, enemy(zoo_keeper, z1, 7, aggressive)).
 
-
-enemy(gorilla, g1, 26, aggressive).
-enemy(gorilla, g2, 23, aggressive).
-enemy(gorilla, g3, 26, aggressive).
-enemy(gorilla, g4, 22, aggressive).
-
-enemy(evil_bat, b1, 8, aggressive).
-enemy(evil_bat, b2, 9, aggressive).
-enemy(evil_bat, b3, 7, aggressive).
-enemy(evil_bat, b4, 12, aggressive).
-
-enemy(zoo_keeper, z1, 14, aggressive).
-enemy(zoo_keeper, z2, 22, aggressive).
-enemy(zoo_keeper, z3, 16, aggressive).
-enemy(zoo_keeper, z4, 15, aggressive).
-
-
-place_enemies(Enemies):-
-	shortest(grey_area, jungle, Path), /* or before the jungle... */
-	length(Path, Count),
-	reverse(Path, Reversed),
-	place_enemies(Enemies, Reversed).
-	
-place_enemies(Enemies, Path):-
-	Enemies = [H|T],	
-	Path = [F,S|R], /* first, second, rest */
-	H = enemy(Type, Id, Life, Behaviour),
-	valuable(Enemies, F), /* find the most valuable enemy */
-	connected(F, Direction, S), /* find the direction between F and S */
-	assertz(at_area(F, Direction, H)), /* place the enemy on the path */
-	place_enemies(T, [S|R]). /* place the remaining enemies */
-	
-
-/* enemies holding precious objects should be away from the shortest path */
-/* enemies that tend to react(aggressive behaviour) and have more life points should be 
-on the shortest path */
-
-valuable(Enemies, Best).
-	
-valuable(Enemies, Best):-
-	Enemies = [H|T],
-	H = enemy(_, Id, _, _),
-	enemy_holds(Id, drink(elisir, _)),
-	Best = H. /* fix....  */
-valuable(Enemies, Best):-
-	Enemies = [H|T],
-	H = enemy(Type, Id, _, _),
-	Type = gorilla, Best = H.
-valuable(_). /* more life */
-
-enemy_holds(b1, object(lens, _)).
-enemy_holds(b1, object(shield, _)).
-enemy_holds(g1, object(lens, _)).
-enemy_holds(z1, drink(elisir, _)).
 
 /* defining items as containers */
 contains(Item, Content) :- 
@@ -362,7 +318,7 @@ drop_all_aux:-
 	format("Dropped: ~w~s", [Item, "\n"]),
 	drop_all_aux.
 	
-/* ================================ EATING objects ==================================== */
+/* =========================== EATING & DRINKING objects ============================== */
 
 /* eating items TODO allow only food to be eaten */
 eat(Item):-

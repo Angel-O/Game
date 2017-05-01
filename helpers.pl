@@ -76,13 +76,14 @@ edible(Item):-
 
 /* the elisir will bring you back to the original state and heal any infection */
 heal:-
-	health(Current_status),
+	user:health(Current_status),
 	retract(user:health(Current_status)),
 	assert(user:health(healthy)),
 	retractall(life_points(_)),
-	assert(life_points(40)),
+	max_life(Max),
+	assert(life_points(Max)),
 	write("Wow, that elisir made miracles! You are brand new!\n"),
-	format("New life: ~w~w", ["40","\n"]).
+	format("New life: ~w~s", [Max,"\n"]).
 	
 /* not eveything is good to eat: rotten food will cause a one time drop of 3 life pts. */	
 does_damage(Content, rotten):-
@@ -171,3 +172,10 @@ alive(Points, Alive):-
 alive(Points, Alive):-
 	Points > 0,
 	Alive = true.	
+
+/* print a message when you win */	
+win :- 
+	i_am_at(jungle),
+	named(Name),
+	format("\nGreat ~w! You made it out of the maze!!!", [Name]), nl,
+	write("Thanks for playing <aMazeInMonkey>.~s").
