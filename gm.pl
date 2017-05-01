@@ -146,7 +146,7 @@ place_items:- assertz(at(room10, object(key_to_jungle, _))),
 
 /* debug */
 place_items_debug:-
-	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, drink(elisir, _))), %assertz(at(grey_area, drink(elisir, _))),
+	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, drink(elisir, _))), assertz(at(grey_area, drink(elisir, _))),
 	assertz(at(grey_area, food(banana, infected))), assertz(at(grey_area, food(apple, healthy))),
 	assertz(at(grey_area, object(key_to_safe, _))), assertz(at(grey_area, safe(magic_glasses, locked))),
 	assertz(at(room1, safe(key_to_jungle, locked))), assertz(at(grey_area, object(specs, unequipped))),
@@ -280,7 +280,7 @@ pick_and_show(Item, _):- pick(Item), fail; nl, pockets, !.
 /* picking everything around */
 pick_all:-
 	alive(Alive),
-	Alive = true, pick_all(_).
+	Alive = true, pick_all(_), !.
 pick_all(_):-
 	can_pick, !, /* checking here as this willl be called recursively */
 	i_am_at(Place),
@@ -289,7 +289,7 @@ pick_all(_):-
 	assertz(holding(Container)),
 	contains(Container, Item),
 	format("Picked: ~w~s", [Item, "\n"]),
-	retract(at(Place, Container)), pick_all(_), !.
+	retract(at(Place, Container)), !, pick_all(_), !.
 
 /* picking everything and showing pockets content */
 pick_all_and_show:-
