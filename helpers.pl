@@ -13,13 +13,14 @@
 	
 /* ==================================== look helpers =================================== */
 
-/* look helper */
+/* checking that there is something in the area */
 there_is_something(Place) :-
 	at(Place, _); 
 	write("nothing in the area"), fail.
 
 /* ================================= inspect helpers =================================== */
-	
+
+/* extracting the item held by the enemy */	
 list_enemy_items(Id, Item):-
 	enemy_holds(Id, Stuff),
 	contains(Stuff, Item).
@@ -66,53 +67,12 @@ can_be_picked(Item):-
 /* ==================================== eat helpers =================================== */
 
 /* checking that the item collected is edible */
-edible(Item):-
-	contains(Item, Content),
-	Item = food(Content, Status),
-	does_damage(Content, Status).	
-
-/* good stuff to drink */
-does_damage(elisir, _):- heal, !.
-	
-/* not eveything is good to eat: rotten food will cause a one time drop of 3 life pts. */	
-does_damage(Content, rotten):-
-	life_points(Life),
-	NewLife is Life - 3,
-	retract(life_points(_)),
-	assert(life_points(NewLife)),
-	format("You ate: ~s ~w. New life: ~w", [rotten, Content, NewLife]),
-	alive(Alive), Alive == true, !.
-
-/* infected food will cause a progressive drop (-1) of life pts suffered each time the
-player moves to a new area or room. */	
-does_damage(Content, infected):- 
-	retractall(health(_)),
-	assert(user:health(infected)),
-	format("You ate: ~s ~w.\n", [infected, Content]),
-	write("Find the elisir to heal or you will constantly lose life points."),
-	alive(Alive), Alive == true, !.
-	
-/* good stuff to eat will add +1 to the life points */
-does_damage(_, healthy):- 
-	life_points(Life),
-	NewLife is Life + 1,
-	retract(life_points(_)),
-	assert(life_points(NewLife)),
-	format("Yummy! New life: ~w", [NewLife]), !.
-	
-/* this double wild card will be matched no matter what, even 
-if the alive predicate fails, therefore I am checking the life points directly*/
-does_damage(_, _):-
-	life_points(Life), Life > 0,
-	write("You can't eat that!"), !, fail. /*random damage...todo*/
+edible(Item):- Item = food(_, _).	
 	
 /* ==================================== drink helpers ================================== */
 
 /* checking that the item collected is drinkable */
-drinkable(Item):-
-	%contains(Item, Content),
-	Item = drink(_, _).
-	%does_damage(Content, Status).	
+drinkable(Item):- Item = drink(_, _).
 
 /* the elisir will bring you back to the original state and heal any infection */
 heal:-
@@ -158,6 +118,43 @@ process_name(Value, Name):-
 								value is not important */
 	Name = "monkey lover", !.
 process_name(Value, Name):-	Name = Value.
+
+/* ============================= shared helpers (eat & drink) ========================== */
+	
+/* good stuff to drink */
+does_damage(elisir, _):- heal, !.
+	
+/* not eveything is good to eat: rotten food will cause a one time drop of 3 life pts. */	
+does_damage(Content, rotten):-
+	life_points(Life),
+	NewLife is Life - 3,
+	retract(life_points(_)),
+	assert(life_points(NewLife)),
+	format("You ate: ~s ~w. New life: ~w", [rotten, Content, NewLife]),
+	alive(Alive), Alive == true, !.
+
+/* infected food will cause a progressive drop (-1) of life pts suffered each time the
+player moves to a new area or room. */	
+does_damage(Content, infected):- 
+	retractall(health(_)),
+	assert(user:health(infected)),
+	format("You ate: ~s ~w.\n", [infected, Content]),
+	write("Find the elisir to heal or you will constantly lose life points."),
+	alive(Alive), Alive == true, !.
+	
+/* good stuff to eat will add +1 to the life points */
+does_damage(_, healthy):- 
+	life_points(Life),
+	NewLife is Life + 1,
+	retract(life_points(_)),
+	assert(life_points(NewLife)),
+	format("Yummy! New life: ~w", [NewLife]), !.
+	
+/* this double wild card will be matched no matter what, even 
+if the alive predicate fails, therefore I am checking the life points directly*/
+does_damage(_, _):-
+	life_points(Life), Life > 0,
+	write("You can't have that!"), !, fail. /*random damage...todo*/	
 	
 /* ============================= shared helpers (unlock & grab) ======================== */
 

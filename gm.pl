@@ -150,7 +150,10 @@ place_items_debug:-
 	assertz(at(grey_area, food(banana, infected))), assertz(at(grey_area, food(apple, healthy))),
 	assertz(at(grey_area, object(key_to_safe, _))), assertz(at(grey_area, safe(magic_glasses, locked))),
 	assertz(at(room1, safe(key_to_jungle, locked))), assertz(at(grey_area, object(specs, unequipped))),
-	assertz(at(grey_area, object(lens, _))).
+	assertz(at(grey_area, object(lens, _))), assertz(at_area(grey_area, north, enemy(gorilla, deb1, 1, aggressive))), 
+	assertz(at_area(grey_area, north, enemy(gorilla, deb2, 2, aggressive))), 
+	assertz(at_area(grey_area, north, enemy(gorilla, deb3, 3, aggressive))),
+	assertz(enemy_holds(deb3, object(bbb,kkk))).
 
 
 /* defining items as containers */
@@ -194,7 +197,10 @@ contains(Item, Content) :-
 /* inspecting a place looking for object */
 look:-
 	alive(Alive),
-	Alive = true, look(_); not(fail). /* always succeed no matter what */
+	Alive = true, not(look(_)). /* negating as it will always fail to leverage backtracking
+								 and list all items at once. The command will always
+								 succeed no matter what, unless the precheck (alive) 
+								 fails */
 look(_) :-
 	write("Looking around...:"), nl,
 	i_am_at(Here),
@@ -205,15 +211,16 @@ look(_) :-
 
 /* =============================== INSPECTING ENEMIES ================================= */
 
-/* inspecting an area looking for enemies TO BE FIXED... too many branches */
-inspect:- 
-	alive(Alive),
-	Alive = true, inspect(_).
+/* entry point */
 inspect:-
-	%moved(Area),
-	%connected(_, Area, _),! ,
-	not(holding(object(specs, lens))),
-	write("You need to pair specs and lens to be able to see more!"), fail, !.
+	alive(Alive),
+	Alive = true, try_inspect, !.
+try_inspect:-
+	holding(object(specs, lens)), !, inspect(_), !.
+try_inspect:-
+	write("You need to pair specs and lens to be able to inspect!"), fail, !.
+	
+/* inspecting an area looking for enemies */
 inspect(_):-
 	i_am_at(Here), moved(Area),
 	holding(object(specs, lens)),
@@ -221,6 +228,13 @@ inspect(_):-
 	at_area(Here, Area, enemy(Type, Id, _, _)),
 	list_enemy_items(Id, Item),
 	format("1 x ~w, (held by ~w)\n", [Item, Type]), fail, !.
+% inspect(_):-
+% 	i_am_at(Here), moved(Area),
+% 	holding(object(specs, lens)),
+% 	write("Inspecting enemies...:"), nl,
+% 	at_area(Here, Area, enemy(Type, Id, _, _)),
+% 	not(list_enemy_items(Id, _)),
+% 	format("1 x ~w, (holding nothing...)\n", [Type]), fail, !.
 inspect(_):-
 	i_am_at(Here), moved(Area),
 	holding(object(specs, lens)),
@@ -232,7 +246,7 @@ inspect(_):-
 /* picking individual items, whichever is first */
 pick:-
 	alive(Alive),
-	Alive = true, pick(Item).
+	Alive = true, pick(_).
 /* picking individual items */
 pick(Item):-
 	alive(Alive),
@@ -346,31 +360,35 @@ drop_all_aux:-
 	
 /* ================================== EATING objects ================================== */
 
-/* eating the first item currently held */
+/* entry point: eating the first item currently held */
 eat:-
 	alive(Alive),
-	Alive = true, holding(_), eat(Item), !.
-eat:-
-	alive(Alive),
-	Alive = true, not(holding(_)),
-	write("You have nothing, go and get something!"), fail, !.
-	
-/* eating a particular item TODO allow only food to be eaten */
+	Alive = true, try_eat, !.
+try_eat:-
+	holding(Item), edible(Item), !, eat(_), !.
+try_eat:-
+	write("You have nothing to eat, go and get something!"), fail, !.
+
+/* drinking individual items */	
 eat(Item):-
-	alive(Alive),
-	Alive = true, eat(Item, _).
-eat(Item, _):-
 	contains(Container, Item),
-	holding(Container), !,
-	retract(holding(Container)), !,
-	edible(Container), !.
-eat(Item, _):-
-	contains(_, Item), !,
-	format("You have no ~w, try and find it!", [Item]), fail, !.
+	holding(Container),
+	edible(Container),
+	Container = food(Item, Status),
+	does_damage(Item, Status),
+	retract(holding(Container)), !.
+eat(Item):-
+	contains(Container, Item),
+	holding(Container),
+	write("You can't eat that..."), !, fail, !.
+eat(Item):-
+	contains(Container, Item),
+	not(holding(Container)), !,
+	write("Do you have that in your pockets ??..."), fail, !.
 	
 /* =================================== DRINKING objects =============================== */
 
-/* entry point: TODO FIX drinkable... */
+/* entry point: drinking the first item currently held */
 drink:-
 	alive(Alive),
 	Alive = true, try_drink, !.
