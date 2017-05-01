@@ -4,10 +4,10 @@
 */
 
 :- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
-	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
-	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
-	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
-	item_is_inside_open_safe/2, process_name/2]).
+	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1,
+	drinkable/1, does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, 
+	holding/1, is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
+	item_is_inside_open_safe/2, process_name/2, does_damage/2]).
 
 :- dynamic(holding/1).
 	
@@ -70,20 +70,9 @@ edible(Item):-
 	contains(Item, Content),
 	Item = food(Content, Status),
 	does_damage(Content, Status).	
-edible(Item):-
-	Item = drink(elisir, _),
-	heal.
 
-/* the elisir will bring you back to the original state and heal any infection */
-heal:-
-	user:health(Current_status),
-	retract(user:health(Current_status)),
-	assert(user:health(healthy)),
-	retractall(life_points(_)),
-	max_life(Max),
-	assert(life_points(Max)),
-	write("Wow, that elisir made miracles! You are brand new!\n"),
-	format("New life: ~w~s", [Max,"\n"]).
+/* good stuff to drink */
+does_damage(elisir, _):- heal, !.
 	
 /* not eveything is good to eat: rotten food will cause a one time drop of 3 life pts. */	
 does_damage(Content, rotten):-
@@ -116,6 +105,26 @@ if the alive predicate fails, therefore I am checking the life points directly*/
 does_damage(_, _):-
 	life_points(Life), Life > 0,
 	write("You can't eat that!"), !, fail. /*random damage...todo*/
+	
+/* ==================================== drink helpers ================================== */
+
+/* checking that the item collected is drinkable */
+drinkable(Item):-
+	%contains(Item, Content),
+	Item = drink(_, _).
+	%does_damage(Content, Status).	
+
+/* the elisir will bring you back to the original state and heal any infection */
+heal:-
+	user:health(Current_status),
+	retract(user:health(Current_status)),
+	assert(user:health(healthy)),
+	retractall(life_points(_)),
+	max_life(Max),
+	assert(life_points(Max)),
+	write("Drank: elisir"), nl,
+	write("Wow, that elisir made miracles! You are brand new!\n"),
+	format("New life: ~w~s", [Max,"\n"]).
 
 /* ================================= pockets helpers =================================== */
 
@@ -172,7 +181,9 @@ count_item_in_pockets(Count):-
 /* life check: when the game is over you won't be allowed to use the main predicates */
 alive(Alive):-
 	life_points(Points),
-	alive(Points, Alive).
+	alive(Points, Alive), !.
+alive(_):-
+	format("Please, type the start command to begin the game"), nl, fail, !.	
 alive(Points, Alive):-
 	Points =< 0,
 	format("~sGame Over, thanks for playing <aMazeInMonkey>.~sStats >>> ", ["\n", "\n\n"]),
@@ -180,7 +191,7 @@ alive(Points, Alive):-
 	Alive = false, fail. 
 alive(Points, Alive):-
 	Points > 0,
-	Alive = true.	
+	Alive = true.
 
 /* print a message when you win */	
 win :- 

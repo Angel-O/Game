@@ -35,10 +35,10 @@
 
 /* importing helpers predicte that should not be invoked directly by the user */
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
-	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1, 
-	does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, holding/1,
-	is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
-	item_is_inside_open_safe/2, process_name/2]).
+	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1,
+	drinkable/1, does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2,
+	holding/1, is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
+	item_is_inside_open_safe/2, process_name/2, does_damage/2]).
 
 /* ....... */
 max_life(35).
@@ -70,7 +70,7 @@ reset :- [gm], [enemy], [moving], [fight], [helpers], [utils], init.
 start :- init.
 
 /* sets an invalid value for life points then tries moving north... */
-lose :- retractall(life_points(_)), assert(life_points(-1)), n.
+lose :- alive(_), retractall(life_points(_)), assert(life_points(-1)), n.
 
 /* abandoning the game */
 quit :- halt.
@@ -146,7 +146,7 @@ place_items:- assertz(at(room10, object(key_to_jungle, _))),
 
 /* debug */
 place_items_debug:-
-	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, drink(elisir, _))),
+	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, drink(elisir, _))), %assertz(at(grey_area, drink(elisir, _))),
 	assertz(at(grey_area, food(banana, infected))), assertz(at(grey_area, food(apple, healthy))),
 	assertz(at(grey_area, object(key_to_safe, _))), assertz(at(grey_area, safe(magic_glasses, locked))),
 	assertz(at(room1, safe(key_to_jungle, locked))), assertz(at(grey_area, object(specs, unequipped))),
@@ -303,7 +303,7 @@ pick_all_and_show(_):- pick_all(_), !; nl, pockets, !.
 /* dropping individual items, whichever is first */
 drop:-
 	alive(Alive),
-	Alive = true, drop(Item).
+	Alive = true, drop(_).
 /* dropping individual items */	
 drop(Item):-
 	alive(Alive),
@@ -344,12 +344,12 @@ drop_all_aux:-
 	format("Dropped: ~w~s", [Item, "\n"]),
 	drop_all_aux.
 	
-/* =========================== EATING & DRINKING objects ============================== */
+/* ================================== EATING objects ================================== */
 
 /* eating the first item currently held */
 eat:-
 	alive(Alive),
-	Alive = true, holding(_), eat(Item), ! .
+	Alive = true, holding(_), eat(Item), !.
 eat:-
 	alive(Alive),
 	Alive = true, not(holding(_)),
@@ -366,11 +366,35 @@ eat(Item, _):-
 	edible(Container), !.
 eat(Item, _):-
 	contains(_, Item), !,
-	format("You have no ~w, try and find it first!", [Item]), fail, !.
+	format("You have no ~w, try and find it!", [Item]), fail, !.
+	
+/* =================================== DRINKING objects =============================== */
 
-/* alias for the elisir */	
-drink(elisir):- !, eat(elisir), !.
-drink(_):- write("You can't drink that..."), fail.
+/* entry point: TODO FIX drinkable... */
+drink:-
+	alive(Alive),
+	Alive = true, try_drink, !.
+try_drink:-
+	holding(Item), drinkable(Item), !, drink(_), !.
+try_drink:-
+	write("You have nothing to drink, go and get something!"), fail, !.
+
+/* drinking individual items */	
+drink(Item):-
+	contains(Container, Item),
+	holding(Container),
+	drinkable(Container),
+	Container = drink(Item, Status),
+	does_damage(Item, Status),
+	retract(holding(Container)), !.
+drink(Item):-
+	contains(Container, Item),
+	holding(Container),
+	write("You can't drink that..."), !, fail, !.
+drink(Item):-
+	contains(Container, Item),
+	not(holding(Container)), !,
+	write("Do you have that in your pockets ??..."), fail, !.
 
 /* ============================= LISTING OUT HELD objects ============================= */
 
@@ -468,14 +492,14 @@ instructions:-
 	format("07. look. [~s]", ["look around the location you are in and list all objects"]), nl,
 	format("08. inspect. [~s]", ["like look, but allows to view more: only available after pairing specs and lens"]), nl,
 	format("09. pick. [~s]", ["try to pick the first item found"]), nl,
-	format("09. pick(item). [~s]", ["pick the item specified, if there is enough space in your pockets"]), nl,
-	format("10. pick_all. [~s]", ["pick all the items around"]), nl,
-	format("11. pockets. [~s]", ["show what is currently held"]), nl,
-	format("12. eat(item). [~s]", ["eat a currently held item, if edible"]), nl,
-	format("13. drink(item). [~s]", ["idiomatic replacement from eat should you be in possess of an elisir"]), nl,
-	format("14. pick_and_show(item). [~s]", ["pick an item and show the pockets content"]), nl,
-	format("15. pick_and_all_show. [~s]", ["pick all the items around and show the pockets content"]), nl,
-	format("18. drop. [~s]", ["drops the first item in the pockets, if any are held"]), nl,
+	format("10. pick(item). [~s]", ["pick the item specified, if there is enough space in your pockets"]), nl,
+	format("11. pick_all. [~s]", ["pick all the items around"]), nl,
+	format("12. pockets. [~s]", ["show what is currently held"]), nl,
+	format("13. eat(item). [~s]", ["eat a currently held item, if edible"]), nl,
+	format("14. drink(item). [~s]", ["idiomatic replacement from eat should you be in possess of an elisir"]), nl,
+	format("15. pick_and_show(item). [~s]", ["pick an item and show the pockets content"]), nl,
+	format("16. pick_and_all_show. [~s]", ["pick all the items around and show the pockets content"]), nl,
+	format("17. drop. [~s]", ["drops the first item in the pockets, if any are held"]), nl,
 	format("18. drop(item). [~s]", ["drops the specified item, if currently held"]), nl,
 	format("19. drop_all. [~s]", ["drop all the items currently held"]), nl,
 	format("20. pair. [~s]", ["pair specs and lens to be able to use the inspect command"]), nl,
