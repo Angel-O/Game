@@ -364,35 +364,43 @@ drop_all_aux:-
 	
 /* ================================== EATING objects ================================== */
 
-/* entry point: eating the first item currently held */
+/* entry point 1: eating the first item currently held: Note: by-passing entry point 2
+by adding a placeholder */
 eat:-
 	alive(Alive),
 	Alive = true, try_eat, !.
 try_eat:-
-	holding(Item), edible(Item), !, eat(_), !.
+	holding(Item), edible(Item), !,
+	contains(Item, Content), eat(Content, _), !.
 try_eat:-
 	write("You have nothing to eat, go and get something!"), fail, !.
 
-/* drinking individual items */	
+/* entry point 2: eating a specific item: checks if alive then delegates to the version
+of the method that takes a placeholder */
 eat(Item):-
+	alive(Alive),
+	Alive = true, !, eat(Item, _), !.
+
+/* eaing individual items */		
+eat(Item, _):-
 	contains(Container, Item),
 	holding(Container),
 	edible(Container),
 	Container = food(Item, Status),
 	does_damage(Item, Status),
 	retract(holding(Container)), !.
-eat(Item):-
+eat(Item,  _):-
 	contains(Container, Item),
 	holding(Container),
 	write("You can't eat that..."), !, fail, !.
-eat(Item):-
+eat(Item, _):-
 	contains(Container, Item),
 	not(holding(Container)), !,
 	write("Do you have that in your pockets ??..."), fail, !.
 	
 /* =================================== DRINKING objects =============================== */
 
-/* entry point 1: drinking the first item currently held, Note: bypyssing entry point 2
+/* entry point 1: drinking the first item currently held, Note: by-passing entry point 2
 by adding a placeholder */
 drink:-
 	alive(Alive),
