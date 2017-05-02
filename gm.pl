@@ -87,16 +87,19 @@ select_name(_) :-
 	assert(named(Name)),
 	life_points(X),
 	format(`Hi ~w! Available life points: ~w.`, [Name, X]).
-
 			 
 /* ============================ Player queries predicates ============================= */
 
-/* print name and life points. Not using alive check here to prevent stack overflow */	
+/* print name and life points. Not using alive check here to prevent stack overflow */
+
 me :-
-	named(Name),
+	alive(Alive),
+	Alive = true, me(_).
+me(_) :- 
 	life_points(Life),
-	format("Name: ~w, Life: ~w\n", [Name, Life]).
-	
+	named(Name),
+	format("Name: ~w, Life: ~w\n", [Name, Life]), !.
+		
 /* info on current location and area */	
 where :-
 	alive(Alive),
@@ -121,6 +124,8 @@ where(_) :-
 to :- 
 	alive(Alive),
 	Alive = true, to(_);
+	life_points(Life),
+	Life > 0,
 	i_am_at(Place), 
 	connected(Place, _, _), !.	
 to(_):-
@@ -129,7 +134,6 @@ to(_):-
 	connected(Place, Area, Destination),
 	Destination \= jungle,
 	format("~w ==> ~w ~s", [Area, Destination, "\n"]), fail.
-
 
 /* ================================== START FACTS ===================================== */
 
@@ -502,7 +506,7 @@ instructions:-
 	write("Commands available to you:"), nl, nl,
 	format("00. instructions. [~s]", ["show this menu"]), nl,
 	format("01. start. [~s]", ["start the game"]), nl,
-	format("02. reset. [~s]", ["restart the game"]), nl,
+	format("02. reset. [~s]", ["restart the game, reloading all the files (debug)"]), nl,
 	format("03. n. [~s]", ["move north"]), nl,
 	format("04. s. [~s]", ["move south"]), nl,
 	format("05. w. [~s]", ["move west"]), nl,
@@ -513,23 +517,25 @@ instructions:-
 	format("10. pick(item). [~s]", ["pick the item specified, if there is enough space in your pockets"]), nl,
 	format("11. pick_all. [~s]", ["pick all the items around"]), nl,
 	format("12. pockets. [~s]", ["show what is currently held"]), nl,
-	format("13. eat(item). [~s]", ["eat a currently held item, if edible"]), nl,
-	format("14. drink(item). [~s]", ["idiomatic replacement from eat should you be in possess of an elisir"]), nl,
-	format("15. pick_and_show(item). [~s]", ["pick an item and show the pockets content"]), nl,
-	format("16. pick_and_all_show. [~s]", ["pick all the items around and show the pockets content"]), nl,
-	format("17. drop. [~s]", ["drops the first item in the pockets, if any are held"]), nl,
-	format("18. drop(item). [~s]", ["drops the specified item, if currently held"]), nl,
-	format("19. drop_all. [~s]", ["drop all the items currently held"]), nl,
-	format("20. pair. [~s]", ["pair specs and lens to be able to use the inspect command"]), nl,
-	format("21. punch. [~s]", ["hit the enemy!"]), nl,
-	format("22. unlock. [~s]", ["unlock an open safe"]), nl,
-	format("23. grab. [~s]", ["grab an item from an open safe. You can also use the pick command if you specify the item"]), nl,
-	format("24. me. [~s]", ["print info about the player, name and life points"]), nl,
-	format("25. where. [~s]", ["show current location and area"]), nl,
-	format("26. select_name. [~s]", ["pick a name"]), nl,
-	format("27. to. [~s]", ["show available directions and destinations from the current location"]), nl,
-	format("28. lose. [~s]", ["ends the game"]), nl,
-	format("29. quit. [~s]", ["abandon the game (equivalent of Prolog halt command)"]), nl, nl.
+	format("13. eat. [~s]", ["eat the first item found in the pockets, if edible"]), nl,
+	format("14. eat(item). [~s]", ["eat the specified item, if edible"]), nl,
+	format("15. drink. [~s]", ["drink the first item found in the pockets, if drinkable"]), nl,
+	format("16. drink(item). [~s]", ["drink the specified item, if drinkable"]), nl,
+	format("17. pick_and_show(item). [~s]", ["pick an item and show the pockets content"]), nl,
+	format("18. pick_all_and_show. [~s]", ["pick all the items around and show the pockets content"]), nl,
+	format("19. drop. [~s]", ["drops the first item in the pockets, if any are held"]), nl,
+	format("20. drop(item). [~s]", ["drops the specified item, if currently held"]), nl,
+	format("21. drop_all. [~s]", ["drop all the items currently held"]), nl,
+	format("22. pair. [~s]", ["pair specs and lens to be able to use the inspect command"]), nl,
+	format("23. punch. [~s]", ["hit the enemy!"]), nl,
+	format("24. unlock. [~s]", ["unlock an open safe"]), nl,
+	format("25. grab. [~s]", ["grab an item from an open safe. You can also use the pick command if you specify the item"]), nl,
+	format("26. me. [~s]", ["print info about the player, name and life points"]), nl,
+	format("27. where. [~s]", ["show current location and area"]), nl,
+	format("28. select_name. [~s]", ["pick a name"]), nl,
+	format("29. to. [~s]", ["show available directions and destinations from the current location"]), nl,
+	format("30. lose. [~s]", ["ends the game"]), nl,
+	format("31. quit. [~s]", ["abandon the game (equivalent of Prolog halt command)"]), nl, nl.
 
 /* ================================ LAUNCH THE GAME =================================== */
 

@@ -177,14 +177,17 @@ count_item_in_pockets(Count):-
 
 /* life check: when the game is over you won't be allowed to use the main predicates */
 alive(Alive):-
-	life_points(Points),
+	life_points(Points),! ,
 	alive(Points, Alive), !.
 alive(_):-
-	format("Please, type the start command to begin the game"), nl, fail, !.	
+	nl, format("Please, type the start command to begin the game"), nl, fail, !.	
 alive(Points, Alive):-
 	Points =< 0,
 	format("~sGame Over, thanks for playing <aMazeInMonkey>.~sStats >>> ", ["\n", "\n\n"]),
-	me, 
+	named(Name),
+	format("Name: ~w, Life: ~w\n", [Name, Points]), !, 
+	nl, write("Type 'start.' and hit enter to play again."),
+	nl, write("Type 'instructions.' and hit enter to see the available commands."), nl,
 	Alive = false, fail. 
 alive(Points, Alive):-
 	Points > 0,
