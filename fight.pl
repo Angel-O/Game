@@ -19,21 +19,20 @@ assaulted:-
 	assaulted_by(Type, Id, Direction).
 	
 assaulted_by(Type, Id, Direction):-	
-	unexpected_assault(Type, Id, Direction); /* note the disjunction */
+	unexpected_assault(Type, Id, _); /* note the disjunction */
 	expected_assault(Type, Id, Direction).
 
 /* unexpected assault */
-unexpected_assault(Type, Id, Direction):-
+unexpected_assault(Type, Id, _):-
 	not(holding(object(specs, lens))),
-	attacked_by(Type, Id), !, 
-	format("(You can't go ~w without fighting!)", [Direction]), !.
+	attacked_by(Type, Id), !. 
 
 /* expected assault */	
 expected_assault(Type, Id, Direction):-
 	holding(object(specs, lens)),
 	assert(fighting(Id)),
-	format("Well done, you spot a: ~w...\n", [Type]),
-	format("(...but you can't go ~w without fighting!)", [Direction]), !.
+	format("Well done, you spot a: ~w !!\n", [Type]),
+	format("(...but you can't go ~w without fighting!)", [Direction]), nl, !.
 	
 /* max power depends on enemy type */	
 maxPower(evil_bat, Value):- Value is 3.
@@ -116,6 +115,8 @@ attacked_by(Type, Id):-
 	assert(life_points(NewLife)),
 	format("You have been attacked by: ~w...\n", [Type]),
 	format("New life: ~w~s", [NewLife, "\n"]),
+	moved(Direction),
+	format("(You can't go ~w without fighting!)", [Direction]), nl,
 	assert(fighting(Id)),
 	alive(Alive), Alive == true, !,
 	drop_item(Enemy_power). /* depending on the power of the attack you may lose items */

@@ -76,8 +76,9 @@ drinkable(Item):- Item = drink(_, _).
 
 /* the elisir will bring you back to the original state and heal any infection */
 heal:-
-	user:health(Current_status),
-	retract(user:health(Current_status)),
+	%user:health(Current_status),
+	%retract(user:health(Current_status)),
+	retractall(user:health(_)),
 	assert(user:health(healthy)),
 	retractall(life_points(_)),
 	max_life(Max),

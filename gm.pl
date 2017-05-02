@@ -342,14 +342,14 @@ drop_aux(Item):-
 	format("Dropped: ~w~s", [Item, "\n"]),
 	holding(_), nl, pockets, !. /* show the pocket content only if anything is left */
 drop_aux(_):-
-	nl, write("Your pockets are empty now."), !.
+	nl, write("Your pockets are empty now."), nl, !.
 	
 /* dropping everything */
 drop_all:-
 	alive(Alive),
 	Alive = true, holding(_), !, 
 	not(drop_all_aux), /* negate the predicate as it will eventually fail */
-	nl, write("Your pockets are empty now.\n").
+	nl, write("Your pockets are empty now.\n"), nl.
 drop_all:-
 	alive(Alive),
 	Alive = true, write("You don't have anything on you at the moment..."), fail.
