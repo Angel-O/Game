@@ -73,7 +73,7 @@ start :- init.
 lose :- alive(_), retractall(life_points(_)), assert(life_points(-1)), n.
 
 /* abandoning the game */
-quit :- halt.
+quit :- nl, write("See you soon!"), nl, nl, halt.
 
 /* selecting the placyer's name */	
 select_name :-
@@ -300,8 +300,8 @@ pick_and_show(Item, _):- pick(Item), fail; nl, pockets, !.
 /* picking everything around */
 pick_all:-
 	alive(Alive),
-	Alive = true, pick_all(_), !.
-pick_all(_):-
+	Alive = true, try_pick_all, !.
+try_pick_all:-
 	can_pick, !, /* checking here as this willl be called recursively */
 	i_am_at(Place),
 	item_is_near_me(Place, Container),
@@ -309,28 +309,34 @@ pick_all(_):-
 	assertz(holding(Container)),
 	contains(Container, Item),
 	format("Picked: ~w~s", [Item, "\n"]),
-	retract(at(Place, Container)), !, pick_all(_), !.
+	retract(at(Place, Container)), !, try_pick_all, !.
 
 /* picking everything and showing pockets content */
 pick_all_and_show:-
 	alive(Alive),
-	Alive = true, pick_all_and_show(_).	
-pick_all_and_show(_):- pick_all(_), !; nl, pockets, !.
+	Alive = true, try_pick_all_and_show.	
+try_pick_all_and_show:- try_pick_all, !; pockets, !.
 
 	
 /* ================================= DROPPING objects ================================= */
 
-/* dropping individual items, whichever is first */
+/* entry point: dropping individual items, whichever is first */
 drop:-
 	alive(Alive),
-	Alive = true, drop(_).
-/* dropping individual items */	
+	Alive = true, try_drop.
+try_drop:- /* droppping inly if in posses of anything */
+	holding(_),! , drop(_).
+try_drop:- /* print friendly message otherwise */
+	write("You don't have anything on you at the moment..."), fail.
+	
+/* entry point: dropping a specific item */
 drop(Item):-
 	alive(Alive),
-	Alive = true, holding(_), !, drop_aux(Item).
-drop(Item):-
-	alive(Alive),
-	Alive = true,
+	Alive = true, drop(Item, _).
+/* 2 branches (using a placeholder) */	
+drop(Item, _):-
+	holding(_), !, drop_aux(Item).
+drop(Item, _):-
 	contains(Container, Item), !,
 	not(holding(Container)),
 	write("You can't drop what you don't have..."), fail.	

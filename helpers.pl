@@ -55,7 +55,7 @@ still_space_in_pockets(Count):- Count =< 3.
 /* the max nomber of items allowed was reached, print friendly message */
 max_reached(Count):-
 	Count == 3,
-	write("Your pockets are full! Drop something or eat it!!\n"),
+	write("Your pockets are full! Drop something or eat it!!\n"), nl,
 	fail, !.
 	
 /* defining what items can be picked */
