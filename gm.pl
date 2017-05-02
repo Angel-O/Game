@@ -220,25 +220,26 @@ inspect:-
 	alive(Alive),
 	Alive = true, try_inspect, !.
 try_inspect:-
-	holding(object(specs, lens)), !, inspect(_), !.
+	holding(object(specs, lens)), !, 
+	write("Inspecting enemies..."), nl, nl inspect(_), !.
 try_inspect:-
 	write("You need to pair specs and lens to be able to inspect!"), fail, !.
 	
-/* inspecting an area looking for enemies */
+/* inspecting an area looking for enemies and see wa=hat they hold */
 inspect(_):-
 	i_am_at(Here), moved(Area),
 	holding(object(specs, lens)),
-	write("Inspecting enemies...:"), nl,
 	at_area(Here, Area, enemy(Type, Id, _, _)),
 	list_enemy_items(Id, Item),
-	format("1 x ~w, (held by ~w)\n", [Item, Type]), fail, !.
-% inspect(_):-
-% 	i_am_at(Here), moved(Area),
-% 	holding(object(specs, lens)),
-% 	write("Inspecting enemies...:"), nl,
-% 	at_area(Here, Area, enemy(Type, Id, _, _)),
-% 	not(list_enemy_items(Id, _)),
-% 	format("1 x ~w, (holding nothing...)\n", [Type]), fail, !.
+	write("Item found:"), nl,
+	format("1 x ~w, (held by: ~w)\n", [Item, Type]), fail, !.
+inspect(_):-
+ 	i_am_at(Here), moved(Area),
+ 	holding(object(specs, lens)),
+ 	at_area(Here, Area, enemy(Type, Id, _, _)),
+ 	not(enemy_holds(Id, _)),
+ 	nl, write("This guy here has nothing..."), nl,
+ 	format("1 x ~w\n", [Type]), fail, !.
 inspect(_):-
 	i_am_at(Here), moved(Area),
 	holding(object(specs, lens)),
@@ -376,7 +377,7 @@ try_eat:-
 	write("You have nothing to eat, go and get something!"), fail, !.
 
 /* entry point 2: eating a specific item: checks if alive then delegates to the version
-of the method that takes a placeholder */
+of the predicate that takes a placeholder */
 eat(Item):-
 	alive(Alive),
 	Alive = true, !, eat(Item, _), !.
@@ -412,7 +413,7 @@ try_drink:-
 	write("You have nothing to drink, go and get something!"), fail, !.
 	
 /* entry point 2: drinking a specific item: checks if alive then delegates to the version
-of the method that takes a placeholder */		
+of the predicate that takes a placeholder */		
 drink(Item):-
 	alive(Alive),
 	Alive = true, !, drink(Item, _), !.
@@ -441,7 +442,11 @@ pockets:-
 	alive(Alive),
 	Alive = true, pockets(_); 
 	count_item_in_pockets(Count),
-	Count > 0. /* succeed only if we have something in our pockets */	
+	Count > 0, life_points(X), X > 0. /* succeed only if we have something in our 
+										pockets. The additional life point check 
+										is not necessary, but it prevents prolog 
+										from reporting a success value when the game
+										is over*/	
 pockets(_):-
 	i_hold_anything, !, /* stop checking if I have nothing */
 	write("Checking pockets..."), nl,
@@ -522,13 +527,13 @@ instructions:-
 	write("Commands available to you:"), nl, nl,
 	format("00. instructions. [~s]", ["show this menu"]), nl,
 	format("01. start. [~s]", ["start the game"]), nl,
-	format("02. reset. [~s]", ["restart the game, reloading all the files (debug)"]), nl,
+	format("02. reset. [~s]", ["restart the game, reloading all the files, useful when debugging"]), nl,
 	format("03. n. [~s]", ["move north"]), nl,
 	format("04. s. [~s]", ["move south"]), nl,
 	format("05. w. [~s]", ["move west"]), nl,
 	format("06. e. [~s]", ["move east"]), nl,
 	format("07. look. [~s]", ["look around the location you are in and list all objects"]), nl,
-	format("08. inspect. [~s]", ["like look, but allows to view more: only available after pairing specs and lens"]), nl,
+	format("08. inspect. [~s]", ["allows to view who holds what: only available after pairing specs and lens"]), nl,
 	format("09. pick. [~s]", ["try to pick the first item found"]), nl,
 	format("10. pick(item). [~s]", ["pick the item specified, if there is enough space in your pockets"]), nl,
 	format("11. pick_all. [~s]", ["pick all the items around"]), nl,
