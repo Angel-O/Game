@@ -166,7 +166,7 @@ contains(Item, Content) :-
 contains(Item, Content) :- 
 	Item = liquid(Content, _).
 contains(object(specs, lens), Content) :-
-	name(" (equipped)", Suffix),
+	name(" (paired)", Suffix),
 	name(specs, Prefix),
 	append(Prefix, Suffix, ContentToList),
 	name(Content, ContentToList), !.
@@ -218,12 +218,13 @@ look(_) :-
 /* entry point */
 inspect:-
 	alive(Alive),
-	Alive = true, try_inspect, !.
+	Alive = true, try_inspect, !.	
 try_inspect:-
-	holding(object(specs, lens)), !, 
-	write("Inspecting enemies..."), nl, nl inspect(_), !.
+	holding(object(specs, lens)), 
+	write("Inspecting enemies..."), nl, nl, inspect(_), !.
 try_inspect:-
-	write("You need to pair specs and lens to be able to inspect!"), fail, !.
+ 	not(holding(object(specs, lens))), 
+ 	write("You need to pair specs and lens to be able to inspect!"), fail, !.
 	
 /* inspecting an area looking for enemies and see wa=hat they hold */
 inspect(_):-
@@ -356,7 +357,7 @@ drop_all:-
 	Alive = true, write("You don't have anything on you at the moment..."), fail.
 drop_all_aux:-
 	i_am_at(Place),
-	holding(Container),
+	holding(Container), !,
 	contains(Container, Item),
 	retract(holding(Container)),
 	assertz(at(Place, Container)),

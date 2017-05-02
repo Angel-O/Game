@@ -167,23 +167,27 @@ attack_chances(evasive, Chance):-
 
 /* ==================================== user attacking ================================ */
 /* hitting the enemy */
-punch:- 
-	alive(Alive),
-	Alive = true, punch(_), !.
+
+/* entry point */
 punch:-
+	alive(Alive),
+	Alive = true, try_punch, !. %punch(_), !.
+
+try_punch:- punch(_), !.
+try_punch:-
 	alive(Alive),
 	Alive = true,
 	i_am_at(Place),
 	moved(Area),
 	not(at_area(Place, Area, _)), !,
 	format("What are you doing? No one is around...\n"), fail.
-punch:-
+try_punch:-
 	alive(Alive),
 	Alive = true,
 	not(fighting(_)),
 	not(holding(object(specs, lens))),
 	format("What are you doing? No one is around...\n"), fail.
-punch:-
+try_punch:-
 	alive(Alive),
 	Alive = true,
 	not(fighting(_)),
