@@ -150,7 +150,7 @@ place_items:- assertz(at(room10, object(key_to_jungle, _))),
 
 /* debug */
 place_items_debug:-
-	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, drink(elisir, _))), assertz(at(grey_area, drink(elisir, _))),
+	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, liquid(elisir, _))), assertz(at(grey_area, liquid(elisir, _))),
 	assertz(at(grey_area, food(banana, infected))), assertz(at(grey_area, food(apple, healthy))),
 	assertz(at(grey_area, object(key_to_safe, _))), assertz(at(grey_area, safe(magic_glasses, locked))),
 	assertz(at(room1, safe(key_to_jungle, locked))), assertz(at(grey_area, object(specs, unequipped))),
@@ -164,7 +164,7 @@ place_items_debug:-
 contains(Item, Content) :- 
 	Item = food(Content, _).
 contains(Item, Content) :- 
-	Item = drink(Content, _).
+	Item = liquid(Content, _).
 contains(object(specs, lens), Content) :-
 	name(" (equipped)", Suffix),
 	name(specs, Prefix),
@@ -392,28 +392,36 @@ eat(Item):-
 	
 /* =================================== DRINKING objects =============================== */
 
-/* entry point: drinking the first item currently held */
+/* entry point 1: drinking the first item currently held, Note: bypyssing entry point 2
+by adding a placeholder */
 drink:-
 	alive(Alive),
 	Alive = true, try_drink, !.
 try_drink:-
-	holding(Item), drinkable(Item), !, drink(_), !.
+	holding(Item), drinkable(Item), !, 
+	contains(Item, Content), drink(Content, _), !.
 try_drink:-
 	write("You have nothing to drink, go and get something!"), fail, !.
+	
+/* entry point 2: drinking a specific item: checks if alive then delegates to the version
+of the method that takes a placeholder */		
+drink(Item):-
+	alive(Alive),
+	Alive = true, !, drink(Item, _), !.
 
 /* drinking individual items */	
-drink(Item):-
+drink(Item, _):-
 	contains(Container, Item),
 	holding(Container),
 	drinkable(Container),
-	Container = drink(Item, Status),
+	Container = liquid(Item, Status),
 	does_damage(Item, Status),
 	retract(holding(Container)), !.
-drink(Item):-
+drink(Item, _):-
 	contains(Container, Item),
 	holding(Container),
 	write("You can't drink that..."), !, fail, !.
-drink(Item):-
+drink(Item, _):-
 	contains(Container, Item),
 	not(holding(Container)), !,
 	write("Do you have that in your pockets ??..."), fail, !.

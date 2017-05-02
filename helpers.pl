@@ -62,7 +62,7 @@ max_reached(Count):-
 can_be_picked(Item):-
 	Item = food(_, _);
 	Item = object(_, _);
-	Item = drink(_, _).
+	Item = liquid(_, _).
 	
 /* ==================================== eat helpers =================================== */
 
@@ -72,7 +72,7 @@ edible(Item):- Item = food(_, _).
 /* ==================================== drink helpers ================================== */
 
 /* checking that the item collected is drinkable */
-drinkable(Item):- Item = drink(_, _).
+drinkable(Item):- Item = liquid(_, _).
 
 /* the elisir will bring you back to the original state and heal any infection */
 heal:-

@@ -103,7 +103,7 @@ equip_enemy:-
 	assert(enemy_holds(b4, food(apple, infected))),
 	assert(enemy_holds(g1, object(mirror, _))), assert(enemy_holds(g2, object(shield, _))),
 	assert(enemy_holds(g3, object(key_to_safe, _))),
-	assert(enemy_holds(g4, drink(elisir, _))), assert(enemy_holds(z1, object(lens, _))),
+	assert(enemy_holds(g4, liquid(elisir, _))), assert(enemy_holds(z1, object(lens, _))),
 	assert(enemy_holds(z2, object(shield, _))), assert(enemy_holds(z3, object(lens, _))), 
 	assert(enemy_holds(z4, food(banana, rotten))).
 	
@@ -114,13 +114,19 @@ to make your life harder. This will happen only for the first aggressive enemy f
 enemy_moves(UserLocation):-
 	shortest(UserLocation, jungle, Path), /* get the shortest path */
 	user:at_area(EnemyPlace, Area, Enemy),
+	UserLocation \= EnemyPlace, /* if the enemy is already there, it will stay */
 	Enemy = enemy(Type, Id, Life, aggressive),
 	connected(AnotherLocation, _, EnemyPlace), /* another place connected to current 
 												enemy's location */
 	member(AnotherLocation, Path), /* another location is on the path */
-	connected(AnotherLocation, Direction, UserLocation), /* another location is the next
+	connected(AnotherLocation, _, UserLocation), /* another location is the next
 															location in the path */
 	retract(user:at_area(EnemyPlace, Area, Enemy)),
+	connected(AnotherLocation, Direction, NextLocationInPath), /* in the direction
+																  towards the jungle */
+	member(NextLocationInPath, Path),
+	NextLocationInPath \= UserLocation, /* next location in the path different from
+										   the ser lcation leads to the jungle */
 	assert(user:at_area(AnotherLocation, Direction, enemy(Type, Id, Life, aggressive))),
 	
 	/* only the first aggressive one TODO: remove the output */ 
