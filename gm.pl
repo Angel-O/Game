@@ -333,8 +333,7 @@ drop(Item):-
 	Alive = true,
 	contains(Container, Item), !,
 	not(holding(Container)),
-	write("You can't drop what you don't have..."), fail.
-	
+	write("You can't drop what you don't have..."), fail.	
 /* helpers */	
 drop_aux(Item):-
 	i_am_at(Place),
@@ -346,15 +345,18 @@ drop_aux(Item):-
 drop_aux(_):-
 	nl, write("Your pockets are empty now."), nl, !.
 	
-/* dropping everything */
+/* dropping everything: entry point */
 drop_all:-
 	alive(Alive),
-	Alive = true, holding(_), !, 
+	Alive = true, !, try_drop_all(_).
+/* 2 secondary branches */	
+try_drop_all(_):-
+	holding(_), !, 
 	not(drop_all_aux), /* negate the predicate as it will eventually fail */
-	nl, write("Your pockets are empty now.\n"), nl.
-drop_all:-
-	alive(Alive),
-	Alive = true, write("You don't have anything on you at the moment..."), fail.
+	nl, write("Your pockets are empty now.\n"), nl, !.
+try_drop_all(_):-
+	write("You don't have anything on you at the moment..."), fail.
+/* recursive helper */	
 drop_all_aux:-
 	i_am_at(Place),
 	holding(Container), !,
@@ -362,6 +364,7 @@ drop_all_aux:-
 	retract(holding(Container)),
 	assertz(at(Place, Container)),
 	format("Dropped: ~w~s", [Item, "\n"]),
+	not(holding(Container)),
 	drop_all_aux.
 	
 /* ================================== EATING objects ================================== */
