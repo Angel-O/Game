@@ -146,44 +146,121 @@ place_items:- assertz(at(room10, object(key_to_jungle, _))),
 	assertz(at(room1, food(banana, healthy))), assertz(at(room2, food(banana, healthy))), 
 	assertz(at(room4, food(banana, healthy))), assertz(at(room8, food(banana, rotten))),
 	assertz(at(room3, food(banana, infected))), assertz(at(room5, object(rotten_banana_detector, _))), 
-	assertz(at(room6, object(key_to_safe, _))), assertz(at(room9, safe(magic_wand, locked))).
+	assertz(at(room6, object(key, safe))), assertz(at(room9, safe(magic_wand, locked))).
 
 /* debug */
 place_items_debug:-
-	assertz(at(grey_area, food(banana, rotten))), assertz(at(grey_area, liquid(elisir, _))), assertz(at(grey_area, liquid(elisir, _))),
-	assertz(at(grey_area, food(banana, infected))), assertz(at(grey_area, food(apple, healthy))),
-	assertz(at(grey_area, object(key_to_safe, _))), assertz(at(grey_area, safe(magic_glasses, locked))),
-	assertz(at(room1, safe(key_to_jungle, locked))), assertz(at(grey_area, object(specs, unequipped))),
-	assertz(at(grey_area, object(lens, _))), assertz(at_area(grey_area, north, enemy(gorilla, deb1, 1, aggressive))), 
+	assertz(at(grey_area, food(banana, rotten))), 
+	assertz(at(grey_area, liquid(elisir, _))), 
+	assertz(at(grey_area, liquid(elisir, _))), 
+	assertz(at(grey_area, food(banana, infected))), 
+	assertz(at(grey_area, food(apple, healthy))),
+	assertz(at(grey_area, food(key, safe))), 
+	
+	assertz(at(grey_area, object(specs, unpaired))),
+	assertz(at(grey_area, object(lens, _))),
+	assertz(at(grey_area, safe(lens, locked))),
+	 
+	assertz(at(grey_area, object(key, room))), 
+	assertz(at(grey_area, object(key, jungle))),
+	
+	
+	assertz(at(grey_area, object(specs))),
+	assertz(at(grey_area, object(lens))),
+	
+	 
+	assertz(at_area(grey_area, north, enemy(gorilla, deb1, 1, aggressive))), 
 	assertz(at_area(grey_area, north, enemy(gorilla, deb2, 2, aggressive))), 
 	assertz(at_area(grey_area, north, enemy(gorilla, deb3, 3, aggressive))),
-	assertz(enemy_holds(deb3, object(bbb,kkk))).
+	
+	assertz(enemy_holds(deb3, object(bbb, kkk))).
 
+/* =============================== OBJECT DEFINITIONS ================================= */
 
-/* defining items as containers */
+/* item types */	
+item_type(banana, food).
+item_type(apple, food).
+item_type(elisir, drink).
+item_type(key, object) .
+item_type(specs, object).
+item_type(lens, object).
+item_type(safe, container).
+
+/* lens or drink ===> no property or status */
+%describe(Thing, Type, Name) :-
+%	Thing = object(Name),
+%	item_type(Name, Type).
+	
+/* key ====> they open something */
+%describe(Thing, key, Type, Opens_what) :-
+%	Thing = object(key, Type, Opens_what),
+%	item_type(key, Type).
+	
+/* food ====> they have a state */
+%describe(Thing, Type, Name, State) :-
+%	Thing = object(Name, State),
+%	item_type(Name, Type).
+	
+/* safe ====> they contain something and have a state */
+%describe(Thing, Item, Property) :-
+%	Thing = safe(Content, Status),
+%	item_type(Item, Type).
+
+%what_exactly(Thing, Item):-
+	
+	
+
+/******************/
+% contains(Object, Item):-
+% 	Object = object(Item, Type),
+% 	describe(Object, Item, Type), !.
+% contains(Object, Item):-
+% 	Object = object(Item, Type, Property),
+% 	describe(Object, Item, Type, Property), !.
+% contains(Object, Item):-
+% 	Object = object(Item, Type, Property, Content),
+% 	describe(Object, Item, Type, Property, Content), !.
+
+/* defining food and drinks as containers */
+contains(Item, Content) :-
+	%item_type(Content, Type), 
+	Item = food(Content, _), !.
 contains(Item, Content) :- 
-	Item = food(Content, _).
-contains(Item, Content) :- 
-	Item = liquid(Content, _).
+	Item = liquid(Content, _), !.
+/* defining a container object made of specs and lens */
 contains(object(specs, lens), Content) :-
 	name(" (paired)", Suffix),
 	name(specs, Prefix),
 	append(Prefix, Suffix, ContentToList),
 	name(Content, ContentToList), !.
-contains(Item, Content) :- 
-	Item = object(Content, _).
-	
-/* describing safe in terms of their content and locked(unlocked) status */
+/* defining a container object made of unpaired specs */
+contains(object(specs, _), Content) :-
+	name(" (unpaired)", Suffix),
+	name(specs, Prefix),
+	append(Prefix, Suffix, ContentToList),
+	name(Content, ContentToList), !.
+/* defining a container object made of key and what the key can unlock */
+contains(Item, Content) :-
+	Item = object(key, To_what),
+	name(To_what, Prefix),
+	name("_", Middle),
+	name(key, Suffix),
+	append(Prefix, Middle, Left_and_middle),
+	append(Left_and_middle, Suffix, ContentToList),
+	name(Content, ContentToList), !.	
+/* defining a locked safe container */
 contains(safe(_, locked), Content) :-
 	name(" (locked)", Suffix),
 	name("safe", Prefix),
 	append(Prefix, Suffix, ContentToList),
 	name(Content, ContentToList), !.
+/* defining an unlocked and empty safe container */
 contains(safe(empty, unlocked), Content) :-
 	name(" (empty)", Suffix),
 	name("safe", Prefix),
 	append(Prefix, Suffix, ContentToList),
 	name(Content, ContentToList), !.
+/* defining an unlocked and non-empty safe container */
 contains(Item, Content) :-
 	Item = safe(X, unlocked),
 	X \= empty,
@@ -194,7 +271,11 @@ contains(Item, Content) :-
 	name(")", Right_part),
 	append(Left_and_middle, Right_part, Item_description),
 	append(Prefix, Item_description, ContentToList),
-	name(Content, ContentToList).
+	name(Content, ContentToList), !.
+/* defining any other type of object */
+contains(Item, Content) :- 
+	Item = object(Content, _),
+	Content \= key, !.
 	
 /* =================================== LOOKING AROUND ================================= */
 
@@ -343,6 +424,7 @@ drop(Item, _):-
 /* helpers */	
 drop_aux(Item):-
 	i_am_at(Place),
+	holding(Container),
 	contains(Container, Item),
 	retract(holding(Container)),
 	assertz(at(Place, Container)),
@@ -429,9 +511,9 @@ drink(Item):-
 	Alive = true, !, drink(Item, _), !.
 
 /* drinking individual items */	
-drink(Item, _):-
-	contains(Container, Item),
-	holding(Container),
+drink(Item, _):-	
+	holding(Container), /*order matters...*/
+	contains(Container, Item),	/*order matters...*/
 	drinkable(Container),
 	Container = liquid(Item, Status),
 	does_damage(Item, Status),
@@ -498,14 +580,14 @@ unlock(_):-
 unlock(_):-
 	i_am_at(Place),
 	at(Place, safe(_, locked)),
-	not(holding(object(key_to_safe, _))),
+	not(holding(object(key, safe))),
 	write("You can't unlock a safe without a key"), nl, fail.
 unlock(_):-
 	i_am_at(Place),
 	at(Place, Item),
 	Item = safe(Content, locked),
 	Precious = Content,
-	holding(object(key_to_safe, _)), /* you hold the key container...*/
+	holding(object(key, safe)), /* you hold the key container...*/
 	retract(at(Place, Item)),
 	assert(at(Place, safe(Precious, unlocked))),
 	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]), !.
