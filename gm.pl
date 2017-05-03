@@ -155,13 +155,13 @@ place_items_debug:-
 	assertz(at(grey_area, liquid(elisir, _))), 
 	assertz(at(grey_area, food(banana, infected))), 
 	assertz(at(grey_area, food(apple, healthy))),
-	assertz(at(grey_area, food(key, safe))), 
+	assertz(at(grey_area, object(key, safe))), 
 	
 	assertz(at(grey_area, object(specs, unpaired))),
 	assertz(at(grey_area, object(lens, _))),
 	assertz(at(grey_area, safe(lens, locked))),
 	 
-	assertz(at(grey_area, object(key, room))), 
+	assertz(at(grey_area, object(key, door))), 
 	assertz(at(grey_area, object(key, jungle))),
 	
 	
@@ -177,53 +177,8 @@ place_items_debug:-
 
 /* =============================== OBJECT DEFINITIONS ================================= */
 
-/* item types */	
-item_type(banana, food).
-item_type(apple, food).
-item_type(elisir, drink).
-item_type(key, object) .
-item_type(specs, object).
-item_type(lens, object).
-item_type(safe, container).
-
-/* lens or drink ===> no property or status */
-%describe(Thing, Type, Name) :-
-%	Thing = object(Name),
-%	item_type(Name, Type).
-	
-/* key ====> they open something */
-%describe(Thing, key, Type, Opens_what) :-
-%	Thing = object(key, Type, Opens_what),
-%	item_type(key, Type).
-	
-/* food ====> they have a state */
-%describe(Thing, Type, Name, State) :-
-%	Thing = object(Name, State),
-%	item_type(Name, Type).
-	
-/* safe ====> they contain something and have a state */
-%describe(Thing, Item, Property) :-
-%	Thing = safe(Content, Status),
-%	item_type(Item, Type).
-
-%what_exactly(Thing, Item):-
-	
-	
-
-/******************/
-% contains(Object, Item):-
-% 	Object = object(Item, Type),
-% 	describe(Object, Item, Type), !.
-% contains(Object, Item):-
-% 	Object = object(Item, Type, Property),
-% 	describe(Object, Item, Type, Property), !.
-% contains(Object, Item):-
-% 	Object = object(Item, Type, Property, Content),
-% 	describe(Object, Item, Type, Property, Content), !.
-
 /* defining food and drinks as containers */
-contains(Item, Content) :-
-	%item_type(Content, Type), 
+contains(Item, Content) :- 
 	Item = food(Content, _), !.
 contains(Item, Content) :- 
 	Item = liquid(Content, _), !.
@@ -609,6 +564,28 @@ grab(_):-
 	at(Place, safe(Content, unlocked)),
 	can_pick,
 	pick_from_safe(Content, Place) , !.
+	
+	
+/* ================================ UNLOCKING DOORS =================================== */
+
+/* unlocking doors: entry point */
+unlock_door:- 
+	alive(Alive),
+	Alive = true, try_unlock_door, !.
+/* 2 branches */
+try_unlock_door:- 
+	holding(object(key, door)), unlock_door(_), !.
+try_unlock_door:-
+	not(holding(object(key, door))),	
+	write("You need a key to to unlock doors."), !, fail.
+unlock_door(_):-	
+	i_am_at(Place),
+	moved(Area),
+	locked(Place, Area),
+	retract(locked(Place, Area)),
+	format("Nice! You unlocked the door! Keep moving ~w !", [Area]), nl, !.
+unlock_door(_):-	
+	write("The way is clear...don't procrastinate!!"), nl, !, fail.
 
 
 /* ================================= INSTRUCTIONS ===================================== */
@@ -643,12 +620,13 @@ instructions:-
 	format("23. punch. [~s]", ["hit the enemy!"]), nl,
 	format("24. unlock. [~s]", ["unlock an open safe"]), nl,
 	format("25. grab. [~s]", ["grab an item from an open safe. You can also use the pick command if you specify the item"]), nl,
-	format("26. me. [~s]", ["print info about the player, name and life points"]), nl,
-	format("27. where. [~s]", ["show current location and area"]), nl,
-	format("28. select_name. [~s]", ["pick a name"]), nl,
-	format("29. to. [~s]", ["show available directions and destinations from the current location"]), nl,
-	format("30. lose. [~s]", ["ends the game"]), nl,
-	format("31. quit. [~s]", ["abandon the game (equivalent of Prolog halt command)"]), nl, nl.
+	format("26. unlock_door. [~s]", ["unlock a door allowing to proceed in that direction"]), nl,
+	format("27. me. [~s]", ["print info about the player, name and life points"]), nl,
+	format("28. where. [~s]", ["show current location and area"]), nl,
+	format("29. select_name. [~s]", ["pick a name"]), nl,
+	format("30. to. [~s]", ["show available directions and destinations from the current location"]), nl,
+	format("31. lose. [~s]", ["ends the game"]), nl,
+	format("32. quit. [~s]", ["abandon the game (equivalent of Prolog halt command)"]), nl, nl.
 
 /* ================================ LAUNCH THE GAME =================================== */
 
