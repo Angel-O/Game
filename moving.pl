@@ -7,30 +7,27 @@
 
 use_module(fight, [fighting/1, assaulted/0]).
 use_module(enemy, [enemy_moves/1]).
+use_module(helpers, [game_is_still_on/0]).
 
 /* ====================================== aliases ==================================== */
 /* moving north */
 n :- 
-	alive(Alive),
-	Alive == true, !, n(_), !.
+	game_is_still_on, !, n(_), !.
 n(_) :- go(north), !.
 
 /* moving south */
 s :- 
-	alive(Alive),
-	Alive == true, !, s(_), !.
+	game_is_still_on, !, s(_), !.
 s(_) :- go(south), !.
 
 /* moving west */
 w :- 
-	alive(Alive),
-	Alive == true, !, w(_), !.
+	game_is_still_on, !, w(_), !.
 w(_) :- go(west), !.
 
 /* moving east */
 e :- 
-	alive(Alive),
-	Alive == true, !, e(_), !.
+	game_is_still_on, !, e(_), !.
 e(_) :- go(east), !.
 
 /* =============================== going somewhere ==================================== */
@@ -49,12 +46,23 @@ go(Direction) :-
 	assert(i_am_at(There)),
 	retract(moved(Direction)),
 	assert(moved(just_arrived)),
-	format("You moved to ~w\n\n", [There]),
+	format("You moved to: ~w\n\n", [There]),
 	enemy:enemy_moves(There),
 	infection_damage,
+	not(goal_reached),
 	look, !.
 
 /* =========================== secondary helper predicates ============================= */
+
+/* checking we arrived at the jungle */
+goal_reached :- 
+	i_am_at(jungle),
+	retractall(i_am_at(_)),
+	assert(i_am_at(jungle)), /* asserting again because of backtracking */
+	named(Name),
+	assert(user:game_is_finished),
+	format("\nGreat ~w! You made it out of the maze!!!", [Name]), nl,
+	write("Thanks for playing <aMazeInMonkey>."), nl, !.
 
 /* checking that I can actually go in the specified direction: if I the direction is not 
 valid the second sub-goal won't be evaluated */ 		
@@ -80,12 +88,16 @@ completely unaccessible) */
 direction_is_valid(Here, Direction) :-
  	connected(Here, Direction, _) ;
  	write("You can't go there."), fail.
+ 	
+direction_is_valid(jungle, _) :-
+ 	write("You won!!!."), reset. /* prompt the user to play again...in the alive predicate....TODO */
 
 /* The door is not locked */
 door_is_not_locked(Here, Direction) :-
-	not(locked(Here, Direction)) ; 
- 	write("That door is locked."), fail.
- 			
+	not(locked(Here, Direction)).	
+door_is_not_locked(Here, Direction) :-
+	locked(Here, Direction),
+ 	write("That door is locked."), fail.		
 
 
 

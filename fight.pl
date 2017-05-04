@@ -170,8 +170,7 @@ attack_chances(evasive, Chance):-
 
 /* entry point */
 punch:-
-	alive(Alive),
-	Alive = true, try_punch, !. %punch(_), !.
+	game_is_still_on, try_punch, !. %punch(_), !.
 
 try_punch:- punch(_), !.
 try_punch:-

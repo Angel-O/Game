@@ -4,10 +4,10 @@
 */
 
 :- module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
-	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1,
-	drinkable/1, does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2, 
-	holding/1, is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
-	item_is_inside_open_safe/2, process_name/2, does_damage/2]).
+	count_item_in_pockets/1, edible/1, drinkable/1, does_damage/2, i_hold_anything/0, 
+	list_enemy_items/2, pick_from_safe/2, holding/1, is_there_even_a_safe/0, 
+	item_is_actually_there/3, alive/1, can_be_picked/1, item_is_inside_open_safe/2, 
+	process_name/2, does_damage/2, game_is_still_on/0]).
 
 :- dynamic(holding/1).
 	
@@ -38,7 +38,7 @@ item_is_actually_there(Place, Container, Content):-
 	contains(Container, Content), !.
 item_is_actually_there(Place, Container, Content):-
 	not(at(Place, Container)),
-	format("~w? ...are you dreaming??!~s", [Content, "\n"]),
+	format("~w? ...are you dreaming??!~s", [Content, "\n"]), !,
 	fail.
 /* the item is inside un unlocked safe */
 item_is_inside_open_safe(Place, Item):-
@@ -46,15 +46,17 @@ item_is_inside_open_safe(Place, Item):-
 	Item \= empty.
 /* can only pick an item if the pockets are not full */
 can_pick:-
+	max_items_in_pockets(Max),
 	count_item_in_pockets(Count), 
-	still_space_in_pockets(Count), !,
-	not(max_reached(Count)),
-	Count < 3.
+	still_space_in_pockets(Count, Max), !,
+	not(max_reached(Count, Max)),
+	Count < Max.
 /* helper to check there is still spcae TODO...needs improvement... */
-still_space_in_pockets(Count):- Count =< 3.
+still_space_in_pockets(Count, Max):- 
+	Count =< Max.
 /* the max nomber of items allowed was reached, print friendly message */
-max_reached(Count):-
-	Count == 3,
+max_reached(Count, Max):-
+	Count == Max,
 	write("Your pockets are full! Drop something or eat it!!\n"), nl,
 	fail, !.
 	
@@ -180,8 +182,16 @@ count_item_in_pockets(Count):-
 alive(Alive):-
 	life_points(Points),! ,
 	alive(Points, Alive), !.
+alive(Alive):-
+	game_is_finished,
+	named(Name),
+	format("\nGreat ~w! You made it out of the maze!!!", [Name]), nl,
+	write("Thanks for playing <aMazeInMonkey>."),
+	nl, write("Type 'start.' and hit enter to play again."),
+	nl, write("Type 'instructions.' and hit enter to see the available commands."), nl,
+	Alive = false, fail. 
 alive(_):-
-	nl, format("Please, type the start command to begin the game"), nl, fail, !.	
+	nl, format("Please, type the 'start.' command to begin the game"), nl, fail, !.	
 alive(Points, Alive):-
 	Points =< 0,
 	format("~sGame Over, thanks for playing <aMazeInMonkey>.~sStats >>> ", ["\n", "\n\n"]),
@@ -195,8 +205,9 @@ alive(Points, Alive):-
 	Alive = true.
 
 /* print a message when you win */	
-win :- 
-	i_am_at(jungle),
-	named(Name),
-	format("\nGreat ~w! You made it out of the maze!!!", [Name]), nl,
-	write("Thanks for playing <aMazeInMonkey>.~s").
+game_is_still_on:-
+	alive(Alive), Alive == true,
+	not(game_is_finished).
+game_is_still_on:-
+	game_is_finished,
+	write("Thanks for playing <aMazeInMonkey>. Use the 'reset.' command to play again "), fail.

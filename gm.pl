@@ -13,6 +13,7 @@
 :- dynamic(moving:moved/1).
 :- dynamic(enemy:enemy_holds/2).
 :- dynamic(health/1).
+:- dynamic(game_is_finished/0).
 
 /* TODO add win predicate.... */
 
@@ -35,13 +36,14 @@
 
 /* importing helpers predicte that should not be invoked directly by the user */
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
-	count_item_in_pockets/1, still_space_in_pockets/1, max_reached/1, edible/1,
-	drinkable/1, does_damage/2, i_hold_anything/0, list_enemy_items/2, pick_from_safe/2,
-	holding/1, is_there_even_a_safe/0, item_is_actually_there/3, alive/1, can_be_picked/1,
-	item_is_inside_open_safe/2, process_name/2, does_damage/2]).
+	count_item_in_pockets/1, edible/1, drinkable/1, does_damage/2, i_hold_anything/0, 
+	list_enemy_items/2, pick_from_safe/2, holding/1, is_there_even_a_safe/0, 
+	item_is_actually_there/3, alive/1, can_be_picked/1, item_is_inside_open_safe/2, 
+	process_name/2, does_damage/2, game_is_still_on/0]).
 
 /* ....... */
 max_life(35).
+max_items_in_pockets(3).
 
 /* ================================== Game misc ======================================= */
 
@@ -49,10 +51,10 @@ max_life(35).
 init:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(at_area(_, _, _)),  
 	retractall(life_points(_)), retractall(holding(_)), retractall(named(_)),  
 	retractall(moved(_)), retractall(locked(_)), retractall(enemy_holds(_, _)),
-	initialize.
+	retractall(game_is_finished), initialize.
 
 /* setting up the initial conditions */	
-initialize:- assert(i_am_at(grey_area)), 
+initialize:- %assert(i_am_at(grey_area)), 
 			 assert(moving:moved(nowhere)),
 			 max_life(Max),
 			 assert(life_points(Max)), 
@@ -70,15 +72,14 @@ reset :- [gm], [enemy], [moving], [fight], [helpers], [utils], init.
 start :- init.
 
 /* sets an invalid value for life points then tries moving north... */
-lose :- alive(_), retractall(life_points(_)), assert(life_points(-1)), n.
+lose :- game_is_still_on, retractall(life_points(_)), assert(life_points(-1)), n.
 
 /* abandoning the game */
 quit :- nl, write("See you soon!"), nl, nl, halt.
 
 /* selecting the placyer's name */	
 select_name :-
-	alive(Alive),
-	Alive = true, select_name(_).
+	game_is_still_on, select_name(_).
 select_name(_) :-
 	write("Type your name (lower-case, please): "),
 	read(Value),
@@ -90,11 +91,10 @@ select_name(_) :-
 			 
 /* ============================ Player queries predicates ============================= */
 
-/* print name and life points. Not using alive check here to prevent stack overflow */
+/* print name and life points */
 
 me :-
-	alive(Alive),
-	Alive = true, me(_).
+	game_is_still_on, me(_).
 me(_) :- 
 	life_points(Life),
 	named(Name),
@@ -102,8 +102,7 @@ me(_) :-
 		
 /* info on current location and area */	
 where :-
-	alive(Alive),
-	Alive = true, where(_).
+	game_is_still_on, where(_).
 where(_) :-
 	i_am_at(Place),
 	moved(Area),
@@ -122,12 +121,12 @@ where(_) :-
 
 /* listing available directions and destinations */		
 to :- 
-	alive(Alive),
-	Alive = true, to(_);
+	game_is_still_on, to(_);
 	life_points(Life),
 	Life > 0,
 	i_am_at(Place), 
-	connected(Place, _, _), !.	
+	connected(Place, _, _),
+	not(game_is_finished), !.	
 to(_):-
 	write("Available directions: "), nl, nl,
 	i_am_at(Place),
@@ -150,6 +149,8 @@ place_items:- assertz(at(room10, object(key_to_jungle, _))),
 
 /* debug */
 place_items_debug:-
+	assert(i_am_at(room8)), 
+	assert(at(room8, object(key, door))),
 	assertz(at(grey_area, food(banana, rotten))), 
 	assertz(at(grey_area, liquid(elisir, _))), 
 	assertz(at(grey_area, liquid(elisir, _))), 
@@ -236,8 +237,7 @@ contains(Item, Content) :-
 
 /* inspecting a place looking for object */
 look:-
-	alive(Alive),
-	Alive = true, not(look(_)). /* negating as it will always fail to leverage backtracking
+	game_is_still_on, not(look(_)), !. /* negating as it will always fail to leverage backtracking
 								 and list all items at once. The command will always
 								 succeed no matter what, unless the precheck (alive) 
 								 fails */
@@ -253,8 +253,7 @@ look(_) :-
 
 /* entry point */
 inspect:-
-	alive(Alive),
-	Alive = true, try_inspect, !.	
+	game_is_still_on, try_inspect, !.	
 try_inspect:-
 	holding(object(specs, lens)), 
 	write("Inspecting enemies..."), nl, nl, inspect(_), !.
@@ -287,12 +286,20 @@ inspect(_):-
 
 /* picking individual items, whichever is first */
 pick:-
-	alive(Alive),
-	Alive = true, pick(_).
+	game_is_still_on, try_pick, !.
+	
+try_pick:- i_am_at(Place), at(Place, _), pick(_), !.
+
+try_pick:- write("...there is nothing here to pick!!"), fail, !.
+
 /* picking individual items */
 pick(Item):-
-	alive(Alive),
-	Alive = true, can_pick, pick(Item, _).
+	game_is_still_on, can_pick, try_pick_item(Item), !.	
+try_pick_item(Item):-
+	i_am_at(Place), at(Place, _), pick(Item, _), !.
+try_pick_item(_):-
+	i_am_at(Place), not(at(Place, _)),
+	write("...there is nothing here you can pick!"), fail, !.
 pick(Item, _):-
 	i_am_at(Place),
 	not(item_is_inside_open_safe(Place, Item)),
@@ -325,18 +332,16 @@ pick(safe, _):-
 pick(Item, _):-
 	i_am_at(Place),
 	not(item_is_actually_there(Place, _, Item)),
-	write("...And where the heck have you seen that?!"), fail.
+	write("...And where the heck have you seen that?!"), fail, !.
 	
 /* picking one item and showing pockets content */	
 pick_and_show(Item):-
-	alive(Alive),
-	Alive = true, pick_and_show(Item, _).
+	game_is_still_on, pick_and_show(Item, _).
 pick_and_show(Item, _):- pick(Item), fail; nl, pockets, !.
 	
 /* picking everything around */
 pick_all:-
-	alive(Alive),
-	Alive = true, try_pick_all, !.
+	game_is_still_on, try_pick_all, !.
 try_pick_all:-
 	can_pick, !, /* checking here as this willl be called recursively */
 	i_am_at(Place),
@@ -349,8 +354,7 @@ try_pick_all:-
 
 /* picking everything and showing pockets content */
 pick_all_and_show:-
-	alive(Alive),
-	Alive = true, try_pick_all_and_show.	
+	game_is_still_on, try_pick_all_and_show.	
 try_pick_all_and_show:- try_pick_all, !; pockets, !.
 
 	
@@ -358,8 +362,7 @@ try_pick_all_and_show:- try_pick_all, !; pockets, !.
 
 /* entry point: dropping individual items, whichever is first */
 drop:-
-	alive(Alive),
-	Alive = true, try_drop.
+	game_is_still_on, try_drop, !.
 try_drop:- /* droppping inly if in posses of anything */
 	holding(_),! , drop(_).
 try_drop:- /* print friendly message otherwise */
@@ -367,8 +370,7 @@ try_drop:- /* print friendly message otherwise */
 	
 /* entry point: dropping a specific item */
 drop(Item):-
-	alive(Alive),
-	Alive = true, drop(Item, _).
+	game_is_still_on, drop(Item, _), !.
 /* 2 branches (using a placeholder) */	
 drop(Item, _):-
 	holding(_), !, drop_aux(Item).
@@ -390,8 +392,7 @@ drop_aux(_):-
 	
 /* dropping everything: entry point */
 drop_all:-
-	alive(Alive),
-	Alive = true, !, try_drop_all(_).
+	game_is_still_on, !, try_drop_all(_).
 /* 2 secondary branches */	
 try_drop_all(_):-
 	holding(_), !, 
@@ -415,8 +416,7 @@ drop_all_aux:-
 /* entry point 1: eating the first item currently held: Note: by-passing entry point 2
 by adding a placeholder */
 eat:-
-	alive(Alive),
-	Alive = true, try_eat, !.
+	game_is_still_on, try_eat, !.
 try_eat:-
 	holding(Item), edible(Item), !,
 	contains(Item, Content), eat(Content, _), !.
@@ -426,8 +426,7 @@ try_eat:-
 /* entry point 2: eating a specific item: checks if alive then delegates to the version
 of the predicate that takes a placeholder */
 eat(Item):-
-	alive(Alive),
-	Alive = true, !, eat(Item, _), !.
+	game_is_still_on, !, eat(Item, _), !.
 
 /* eaing individual items */		
 eat(Item, _):-
@@ -451,8 +450,7 @@ eat(Item, _):-
 /* entry point 1: drinking the first item currently held, Note: by-passing entry point 2
 by adding a placeholder */
 drink:-
-	alive(Alive),
-	Alive = true, try_drink, !.
+	game_is_still_on, try_drink, !.
 try_drink:-
 	holding(Item), drinkable(Item), !, 
 	contains(Item, Content), drink(Content, _), !.
@@ -462,8 +460,7 @@ try_drink:-
 /* entry point 2: drinking a specific item: checks if alive then delegates to the version
 of the predicate that takes a placeholder */		
 drink(Item):-
-	alive(Alive),
-	Alive = true, !, drink(Item, _), !.
+	game_is_still_on, !, drink(Item, _), !.
 
 /* drinking individual items */	
 drink(Item, _):-	
@@ -486,14 +483,15 @@ drink(Item, _):-
 
 /* listing all items currently held */
 pockets:-
-	alive(Alive),
-	Alive = true, pockets(_); 
+	game_is_still_on, pockets(_); 
 	count_item_in_pockets(Count),
-	Count > 0, life_points(X), X > 0. /* succeed only if we have something in our 
+	Count > 0, life_points(X), X > 0, /* succeed only if we have something in our 
 										pockets. The additional life point check 
 										is not necessary, but it prevents prolog 
 										from reporting a success value when the game
-										is over*/	
+										is over*/
+	not(game_is_finished).
+		
 pockets(_):-
 	i_hold_anything, !, /* stop checking if I have nothing */
 	write("Checking pockets..."), nl,
@@ -506,8 +504,7 @@ pockets(_):-
 	
 /* pairing specs and lens */
 pair:-
-	alive(Alive),
-	Alive = true, pair(_).	
+	game_is_still_on, pair(_).	
 pair(_):-
 	holding(object(specs, _)),
 	holding(object(lens, _)),
@@ -528,8 +525,7 @@ pair(_):-
 
 /* unlocking safes */
 unlock:- 
-	alive(Alive),
-	Alive = true, unlock(_).
+	game_is_still_on, unlock(_).
 unlock(_):-
 	is_there_even_a_safe.
 unlock(_):-
@@ -551,8 +547,7 @@ unlock(_):-
 	
 /* grabbing an object from an open safe */
 grab:- 
-	alive(Alive),
-	Alive = true, grab(_).
+	game_is_still_on, grab(_).
 grab(_):-
 	is_there_even_a_safe.
 grab(_):-
@@ -570,8 +565,7 @@ grab(_):-
 
 /* unlocking doors: entry point */
 unlock_door:- 
-	alive(Alive),
-	Alive = true, try_unlock_door, !.
+	game_is_still_on, try_unlock_door, !.
 /* 2 branches */
 try_unlock_door:- 
 	holding(object(key, door)), unlock_door(_), !.
