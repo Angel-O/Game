@@ -1,16 +1,22 @@
+/*
+ This module define the enemies: what type of enemies are in the game.
+ their characteristics (type, Id, life, behaviour) what objects they hold and so on.
+ It also defines criteria to establish which ones are the most dangerous and the rules
+ they follow to move aroud the maze.
+*/
+
 :- module(enemy, [place_enemy/0, equip_enemy/0, enemy_holds/2, enemy_moves/1]).
 
 :- dynamic(enemy_holds/2).
 
-
 /* =============================== PLACING ENEMIES ==================================== */
 
-/* randomly placing enemies in the maze */ /* TODO verify... */
+/* randomly placing enemies in the maze */
 place_enemy:-
 
 	retractall(user:at_area(_, _, _)),
 	
-	/* sorting all enemies in the game from the most to the less dangerous */	
+	/* sorting all enemies in the game */	
 	sort_enemies([		
 		enemy(gorilla, g1, 26, aggressive), enemy(gorilla, g2, 23, aggressive),
 		enemy(gorilla, g3, 26, aggressive), enemy(gorilla, g4, 22, aggressive),
@@ -20,6 +26,7 @@ place_enemy:-
 		enemy(zoo_keeper, z3, 16, aggressive), enemy(zoo_keeper, z4, 15, aggressive)], 
 	Sorted),
 	
+	/* reversing the order from the most to the less dangerous */
 	reverse(Sorted, Enemies),
 	
 	Enemies = [_, _, _, _|Remaining_Enemies], 
@@ -27,10 +34,9 @@ place_enemy:-
 	subtract(Enemies, Remaining_Enemies, Four_Most_Dangerous),
 	
 	/* all rooms that can host an enemy: excluding jungle and grey_area */
-	scrumble_locations([
-		room1, room2, room3, room4, room5, room6, room7, room8, room9, room10],
-		Locations),	
+	locations_no_ends(Trimmed_locations), scrumble_locations(Trimmed_locations, Locations),	
 	
+	/* get the shortest path from start to end point */
 	shortest(grey_area, jungle, Path),
 	
 	subtract(Path, [grey_area, jungle], Allowed_locations_in_path),
@@ -47,7 +53,7 @@ place_enemy:-
 		Locations,						
 		[north, south, west, east]); /* all possible directions */
 		
-	not(fail).
+	not(fail). /* with the current constraint this should always be succesfull */
 
 
 /* selecting a random enemy ad random locations and areas (in each location) where 
@@ -63,7 +69,8 @@ place_most_dangerous(_, _, _). /* making the predicate always successful to
 the enemies will be hiding */
 place_enemy(Enemies, Locations, Directions):-
 	random_select(Enemy, Enemies, Other_enemies),
-	%random_member(Location, Locations),
+	/* random_member(Location, Locations), using a custom function (next_location) 
+										to spread enemies more evenly */
 	next_location(Location, Locations),
 	random_member(Area, Directions), !,
 	area_is_valid(Area, Location, Valid_area, Directions), !,
@@ -90,29 +97,30 @@ scrumble_locations(Locations, Scrumbled):-
 	random_permutation(Locations, Scrumbled).
 
 
-
 /* ============================= EQUIPPING ENEMIES ==================================== */
 
-/* enemies holding precious objects should be away from the shortest path */
 /* enemies that tend to react(aggressive behaviour) and have more life points should be 
 on the shortest path */
 
+/* TODO: enemies holding precious objects should be away from the shortest path */
+
 equip_enemy:-
-	assert(enemy_holds(b1, object(lens, _))), assert(enemy_holds(b2, object(shield, _))), 
+	assert(enemy_holds(b1, object(lens, _))), assert(enemy_holds(b2, object(shield, 6))), 
 	assert(enemy_holds(b3, object(lens, _))), 
 	assert(enemy_holds(b4, food(apple, infected))),
-	assert(enemy_holds(g1, object(mirror, _))), assert(enemy_holds(g2, object(shield, _))),
-	assert(enemy_holds(g3, object(key_to_safe, _))),
+	assert(enemy_holds(g1, object(key, door))), assert(enemy_holds(g2, object(shield, 10))),
+	assert(enemy_holds(g3, object(key, safe))),
 	assert(enemy_holds(g4, liquid(elisir, _))), assert(enemy_holds(z1, object(lens, _))),
-	assert(enemy_holds(z2, object(shield, _))), assert(enemy_holds(z3, object(lens, _))), 
+	assert(enemy_holds(z2, object(shield, 8))), assert(enemy_holds(z3, object(lens, _))), 
 	assert(enemy_holds(z4, food(banana, rotten))).
 	
 /* =============================== ENEMIES MOVING ===================================== */	
 
-/* if an aggressive enemy is close to the shortest path to the jungle it will move there
-to make your life harder. This will happen only for the first aggressive enemy found */
+/* each time the user changes location, if an aggressive enemy is close to the shortest 
+path from the user's location to the jungle it will move there to make game harder. 
+This will happen only for the first aggressive enemy found */
 enemy_moves(UserLocation):-
-	shortest(UserLocation, jungle, Path), /* get the shortest path */
+	shortest(UserLocation, jungle, Path), /* get the shortest path from the user's place */
 	user:at_area(EnemyPlace, Area, Enemy),
 	UserLocation \= EnemyPlace, /* if the enemy is already there, it will stay */
 	Enemy = enemy(Type, Id, Life, aggressive),
@@ -126,11 +134,12 @@ enemy_moves(UserLocation):-
 																  towards the jungle */
 	member(NextLocationInPath, Path),
 	NextLocationInPath \= UserLocation, /* next location in the path different from
-										   the ser lcation leads to the jungle */
+										   the user location leads to the jungle */
 	assert(user:at_area(AnotherLocation, Direction, enemy(Type, Id, Life, aggressive))),
 	
 	/* only the first aggressive one TODO: remove the output */ 
-	format("~w moved from ~w to ~w...", [Id, EnemyPlace, AnotherLocation ]), nl, !. 
+	%format("~w moved from ~w to ~w...", [Id, EnemyPlace, AnotherLocation]), nl, !. 
+	write("(...sinister sounds...)"), nl, nl, !. 
 
 enemy_moves(_). /* the predicate will always succeed */
 	
@@ -216,145 +225,3 @@ more_dangerous(A, B, B):-
 	A = enemy(Type, _, Life, Behaviour),
 	B = enemy(Type, _, Life, aggressive),
 	Behaviour \= aggressive, !.
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* ====================================== UNUSED ====================================== */
-
-all_locations_have_at_least_one_enemy([]).
-all_locations_have_at_least_one_enemy([H]):-
-	user:at_area(H, _, _).
-all_locations_have_at_least_one_enemy([H|T]):-
-	user:at_area(H, _, _),
-	all_locations_have_at_least_one_enemy(T).
-	
-
-/* items values */
-value(key_to_jungle, 10).
-value(door_key, 9).
-value(elisir, 8).
-value(key_to_safe, 7).
-value(shield, 6).
-value(_, 0).
-
-/*GET RID OF THIS */
-/* holding more valuable items */	
-more_valuable(A, B, A):-
-	A = enemy(_, Id_a, _, _),
-	B = enemy(_, Id_b, _, _),
-	enemy_holds(Id_a, object(Item_a, _)),
-	enemy_holds(Id_b, object(Item_b, _)), 
-	value(Item_a, Value_a), value(Item_b, Value_b),
-	Value_a >= Value_b, !.
-	
-more_valuable(A, B, B):-
-	A = enemy(_, Id_a, _, _),
-	B = enemy(_, Id_b, _, _),
-	enemy_holds(Id_a, object(Item_a, _)),
-	enemy_holds(Id_b, object(Item_b, _)), 
-	value(Item_a, Value_a), value(Item_b, Value_b),
-	Value_a < Value_b, !.
-
-/* holding vs not holding */	
-more_valuable(A, B, A):-
-	A = enemy(_, Id_a, _, _),
-	B = enemy(_, Id_b, _, _),
-	enemy_holds(Id_a, object(Item, _)),
-	value(Item, Value), Value > 0,
-	not(enemy_holds(Id_b, _)), !.
-more_valuable(A, B, B):-
-	A = enemy(_, Id_a, _, _),
-	B = enemy(_, Id_b, _, _),
-	enemy_holds(Id_b, object(Item, _)),
-	value(Item, Value), Value > 0,
-	not(enemy_holds(Id_a, _)), !.
-
-%more_valuable(A, _, A).	
-
-
-
-
-	
-find_most_valuable(EnemyList, Most):-
-	EnemyList = [H|T], Current_Most = H,
-	find_most_valuable(T, Current_Most, Most).	
-find_most_valuable(EnemyList, Current_Most, Most):-
-	EnemyList = [H|[]],
-	more_valuable(H, Current_Most, Most).
-find_most_valuable(EnemyList, Current_Most, Absolute_Most):-
-	EnemyList = [H|T],
-	more_valuable(H, Current_Most, New_Most),
-	find_most_valuable(T, New_Most, Absolute_Most), !.
-
-
-
-
-	
-	
-
-/* sorting, reversing... */
-place_enemies(Enemies):-
-	shortest(grey_area, jungle, Path), /* or before the jungle... */
-	reverse(Path, ReversedPath),
-	sort_enemies(Enemies, Sorted),
-	reverse(Sorted, ReversedEnemies),
-	All_Locations = [room1, room2, room3, room4, room4, room5, room6, room7, room8, room9,
-					 room10],
-	place_enemies(ReversedEnemies, All_Locations, ReversedPath).
-
-/* start... */
-place_enemies(Enemies, All_Locations):-
-	Enemies = [H|[]],
-	random_area(Area),
-	random_location(All_Locations, Location),
-	assertz(at_area(Location, Area, H)).
-	
-/* Placing the remaining enemies in the remaining locations */	
-place_enemies(Enemies, All_Locations):-
-	Enemies = [H|T],
-	random_area(Area),
-	random_location(All_Locations, Location),
-	assertz(at_area(Location, Area, H)),
-	place_enemies(T, All_Locations). /* no one in the jungle */
-
-/* only one locations left: the jungle. Nothing will go there */
-place_enemies(Enemies, All_Locations, Path):-
-	Path = [jungle|[]],
-	shortest(grey_area, jungle, Initial),
-	subtract(All_Locations, Initial, Remaining_Localtions),
-	place_enemies(Enemies, Remaining_Localtions).
-
-/* only two locations left: the jungle and an adjacent room, whichever */
-place_enemies(Enemies, All_Locations, Path):-
-	Path = [F,S|[]],
-	Enemies = [H|T],
-	connected(F, Direction, S),
-	assertz(at_area(F, Direction, H)),
-	place_enemies(T, All_Locations, [S]). /* no one in the jungle */
-
-/* placing most dangerous enemies on the shortest path */
-place_enemies(Enemies, All_Locations, Path):-
-	list_out(Path),
-	Enemies = [H|T],
-	Path = [F,S|R], /* first, second, rest */
-	connected(S, Direction, F), /* find the direction between F and S */
-	list_out(Enemies),
-	assertz(at_area(F, Direction, H)), /* place the enemy on the path */
-	place_enemies(T, All_Locations, [S|R]). /* place the remaining enemies */
-

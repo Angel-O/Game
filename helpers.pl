@@ -78,8 +78,6 @@ drinkable(Item):- Item = liquid(_, _).
 
 /* the elisir will bring you back to the original state and heal any infection */
 heal:-
-	%user:health(Current_status),
-	%retract(user:health(Current_status)),
 	retractall(user:health(_)),
 	assert(user:health(healthy)),
 	retractall(life_points(_)),
@@ -111,7 +109,7 @@ pick_from_safe(Item, Place):-
 /* trying to grab from an empty safe */
 pick_from_safe(empty, _):-
 	named(Name),
-	format("Hey ~w wake up! The safe is empty !!!~s", [Name, "\n"]), fail, !.
+	format("Hey ~w wake up! The safe is empty !!!~s", [Name, "\n"]), !, fail, !.
 	
 /* ======================= Player queries predicates helpers =========================== */
 
@@ -139,7 +137,7 @@ does_damage(Content, rotten):-
 /* infected food will cause a progressive drop (-1) of life pts suffered each time the
 player moves to a new area or room. */	
 does_damage(Content, infected):- 
-	retractall(health(_)),
+	retractall(user:health(_)),
 	assert(user:health(infected)),
 	format("You ate: ~s ~w.\n", [infected, Content]),
 	write("Find the elisir to heal or you will constantly lose life points."),
@@ -210,4 +208,5 @@ game_is_still_on:-
 	not(game_is_finished).
 game_is_still_on:-
 	game_is_finished,
-	write("Thanks for playing <aMazeInMonkey>. Use the 'reset.' command to play again "), fail.
+	write("Thanks for playing <aMazeInMonkey>. Use the 'start.' command to play again "),
+	!, fail.

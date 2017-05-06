@@ -81,12 +81,15 @@ reaction_type(Reaction):-
 	select_reaction(Reaction, Value).
 		
 /* helper predicate to select a reaction type */
-select_reaction(Reaction, _):-
+select_reaction(Reaction, 1):-
+	holding(_),
+	Reaction = steal.
+select_reaction(Reaction, 2):-
+	Reaction = bail.
+select_reaction(Reaction, 3):-
 	Reaction = fight.
 select_reaction(Reaction, _):-
-	Reaction = steal.
-select_reaction(Reaction, 1):-
-	Reaction = bail.
+	random_member(Reaction, [fight,bail,steal]).
 	
 /* aggressive gorillas will fight back if it has a higher life than mine fix comment or change this */
 react(Enemy_type, Id, Reaction_Type, Chance):- 	
@@ -110,10 +113,13 @@ attacked_by(Type, Id):-
 	life_points(Life),
 	maxPower(Type, Value),
 	random(1, Value, Enemy_power),
-	NewLife is Life - Enemy_power,
+	%NewLife is Life - Enemy_power,
+	%retract(life_points(_)),
+	%assert(life_points(NewLife)),
+	format("You have been attacked by: ~w...\n", [Type]),
+	i_have_shield(Enemy_power, Life, NewLife),
 	retract(life_points(_)),
 	assert(life_points(NewLife)),
-	format("You have been attacked by: ~w...\n", [Type]),
 	format("New life: ~w~s", [NewLife, "\n"]),
 	moved(Direction),
 	format("(You can't go ~w without fighting!)", [Direction]), nl,
@@ -121,15 +127,39 @@ attacked_by(Type, Id):-
 	alive(Alive), Alive == true, !,
 	drop_item(Enemy_power). /* depending on the power of the attack you may lose items */
 
+/* holding a shield */
+i_have_shield(Enemy_power, Life, NewLife):-
+	holding(object(shield, Hits)),
+	Enemy_power =< Hits,
+	NewHits is Hits - Enemy_power,
+	retract(holding(object(shield, Hits))),
+	assert(holding(object(shield, NewHits))),
+	NewLife is Life,
+	write("Great! The shield protected you!"), nl.
+
+/* enemy cracking the shield */	
+i_have_shield(Enemy_power, Life, NewLife):-
+	holding(object(shield, Hits)),
+	Enemy_power > Hits,
+	Damage is Enemy_power - Hits,
+	NewLife is Life - Damage,
+	retract(holding(object(shield, Hits))),
+	write("That hit cracked your shield...you lost the protection!"), nl.
+
+/* not having a shield */	
+i_have_shield(Enemy_power, Life, NewLife):-
+	not(holding(object(shield, _))),
+	NewLife is Life - Enemy_power.
+	
 /* enemies running away */
 bail(Enemy_type, Id):-
 	i_am_at(Place),
 	moved(Area), /* or fighting */
 	at_area(Place, Area, enemy(Enemy_type, Id, Life, Behaviour)),
-	retract(at_area(Place, Area, enemy(Enemy_type, Id, Life, Behaviour))),
 	connected(Place, Area, Next_Place),
 	not(locked(Place, Area)),
-	connected(_, Random_Area, _), !, /* they will move to a random area in th next room */
+	connected(Next_Place, Random_Area, _), /* moving to a random area in the next room */
+	retract(at_area(Place, Area, enemy(Enemy_type, Id, Life, Behaviour))),
 	assert(at_area(Next_Place, Random_Area, enemy(Enemy_type, Id, Life, Behaviour))),
 	retractall(fighting(_)),
 	format("...The ~w just ran away!!~s", [Enemy_type, "\n"]).

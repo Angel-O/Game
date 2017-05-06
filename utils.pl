@@ -1,4 +1,4 @@
-:- module(utils, [shortest/3]). 
+:- module(utils, [shortest/3, all_paths_dir/3, shortest_dir/3, longest_dir/3]). 
 
 :-dynamic(shortest_so_far/1).
 :-dynamic(longest_so_far/1).
@@ -62,6 +62,24 @@ shortest(Start, Finish, First, _):-
 	Next_Length < Current_length,
 	retractall(shortest_so_far(_)),
 	assert(shortest_so_far(Next)), fail.
+
+/* getting the shortest path with the direction */	
+shortest_dir(Start, Finish, Shortest):-
+	retractall(shortest_so_far(_)),
+	all_paths_dir(Start, Finish, First),
+	assert(shortest_so_far(First)),
+	shortest_dir(Start, Finish, First, _);
+	shortest_so_far(Shortest), !.
+	
+shortest_dir(Start, Finish, First, _):-
+	all_paths_dir(Start, Finish, Next),
+	Next \= First,
+	length(Next, Next_Length),
+	shortest_so_far(Current_shortest),
+	length(Current_shortest, Current_length),	
+	Next_Length < Current_length,
+	retractall(shortest_so_far(_)),
+	assert(shortest_so_far(Next)), fail.
 	
 /* getting the longest path between two arbitrary locations!!! */
 longest(Start, Finish, Longest):-
@@ -80,6 +98,25 @@ longest(Start, Finish, First, _):-
 	Next_Length > Current_length,
 	retractall(longest_so_far(_)),
 	assert(longest_so_far(Next)), fail.
+	
+/* getting the longest path between two arbitrary locations!!! */
+longest_dir(Start, Finish, Longest):-
+	retractall(longest_so_far(_)),
+	all_paths_dir(Start, Finish, First),
+	assert(longest_so_far(First)),
+	longest_dir(Start, Finish, First, _);
+	longest_so_far(Longest), !.
+	
+longest_dir(Start, Finish, First, _):-
+	all_paths_dir(Start, Finish, Next),
+	Next \= First,
+	length(Next, Next_Length),
+	longest_so_far(Current_longest),
+	length(Current_longest, Current_length),	
+	Next_Length > Current_length,
+	retractall(longest_so_far(_)),
+	assert(longest_so_far(Next)), fail.
+
 
 
 /* this rule determines if two rooms are adjacent. Note how

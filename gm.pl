@@ -1,5 +1,11 @@
 /* <aMazeInMonkey>, by <Angelo Oparah>. */
 
+/*
+ This is the main file.
+*/
+
+
+/* will prevent the solutions from being truncated */
 :-set_prolog_flag(answer_write_options,[max_depth(0)]).
 
 /* dynamic predicates */
@@ -15,12 +21,15 @@
 :- dynamic(health/1).
 :- dynamic(game_is_finished/0).
 
-/* TODO add win predicate.... */
+%TODO add describe predicate to combine lost of useful stuff in one go
 
 /* ========================== Importing files and modules ============================= */
 
 /* this describes how rooms are conneted between them */
 :- include('rooms.pl').
+
+/* contains all items in the game */
+:- include('items.pl').
 
 /* these allow the user to move around the maze */ 
 :- use_module(moving, [n/0, s/0, w/0, e/0, moved/1]).
@@ -28,11 +37,15 @@
 /* this allows the user to hit enemies */
 :- use_module(fight, [punch/0]).
 
-/* ...... */
-:- use_module(utils, [shortest/3]).
+/* shortest path (it's used by the enemy module, but it's useful to have it here
+to have access to it without loading the file each time) */
+:- use_module(utils, [shortest/3, all_paths_dir/3, shortest_dir/3, longest_dir/3]).
 
-/* ...... */
+/* places the enemy, adds item to them */
 :- use_module(enemy, [place_enemy/0, equip_enemy/0, enemy_holds/2]).
+
+/* debugging */
+:- use_module(debugging, [place_items_debug/0]).
 
 /* importing helpers predicte that should not be invoked directly by the user */
 :- use_module(helpers, [there_is_something/1, item_is_near_me/2, can_pick/0, 
@@ -41,7 +54,7 @@
 	item_is_actually_there/3, alive/1, can_be_picked/1, item_is_inside_open_safe/2, 
 	process_name/2, does_damage/2, game_is_still_on/0]).
 
-/* ....... */
+/* defining pseudo constants */
 max_life(35).
 max_items_in_pockets(3).
 
@@ -50,23 +63,24 @@ max_items_in_pockets(3).
 /* this section will reset the game ot the initital state */
 init:- retractall(at(_, _)), retractall(i_am_at(_)), retractall(at_area(_, _, _)),  
 	retractall(life_points(_)), retractall(holding(_)), retractall(named(_)),  
-	retractall(moved(_)), retractall(locked(_)), retractall(enemy_holds(_, _)),
-	retractall(game_is_finished), initialize.
+	retractall(moved(_)), retractall(locked(_, _)), retractall(enemy_holds(_, _)),
+	retractall(game_is_finished), retractall(health(_)), initialize.
 
 /* setting up the initial conditions */	
-initialize:- %assert(i_am_at(grey_area)), 
+initialize:- assert(i_am_at(grey_area)), 
 			 assert(moving:moved(nowhere)),
 			 max_life(Max),
 			 assert(life_points(Max)), 
 			 assert(health(healthy)),
+			 lock_doors,
 			 equip_enemy,
 			 place_enemy,
 			 place_items,
-			 place_items_debug,
+			 %place_items_debug, /* disabled */
 			 select_name.
 
 /* reloads all files and restart the game */
-reset :- [gm], [enemy], [moving], [fight], [helpers], [utils], init.
+reset :- [gm], [enemy], [moving], [fight], [helpers], [utils], [debugging] , init.
 
 /* start the game */
 start :- init.
@@ -92,7 +106,6 @@ select_name(_) :-
 /* ============================ Player queries predicates ============================= */
 
 /* print name and life points */
-
 me :-
 	game_is_still_on, me(_).
 me(_) :- 
@@ -102,7 +115,7 @@ me(_) :-
 		
 /* info on current location and area */	
 where :-
-	game_is_still_on, where(_).
+	game_is_still_on, where(_), !.
 where(_) :-
 	i_am_at(Place),
 	moved(Area),
@@ -121,126 +134,179 @@ where(_) :-
 
 /* listing available directions and destinations */		
 to :- 
-	game_is_still_on, to(_);
+	game_is_still_on, 
+	write("Available directions: "), nl, nl, to(_);
 	life_points(Life),
 	Life > 0,
 	i_am_at(Place), 
 	connected(Place, _, _),
 	not(game_is_finished), !.	
+to(_):-	
+	i_am_at(Place),
+	connected(Place, Area, _),
+	locked(Place, Area),
+	format("~w ==> ~w ~s", [Area, "???", "\n"]), fail.
 to(_):-
-	write("Available directions: "), nl, nl,
 	i_am_at(Place),
 	connected(Place, Area, Destination),
-	Destination \= jungle,
+	not(locked(Place, Area)),
 	format("~w ==> ~w ~s", [Area, Destination, "\n"]), fail.
 
-/* ================================== START FACTS ===================================== */
+/* ============================= START FACTS - placing items ========================== */
 
-/* locations */
-locked(room8, north). locked(room1, north). /* to be removed.... */
+/* placing items randomly */	
+place_items:-
+	/* freebies */	
+	assertz(at(grey_area, food(banana, healthy))), 
+	assertz(at(grey_area, food(banana, healthy))), 
+	assertz(at(grey_area, food(apple, healthy))), 	
+	assertz(at(room1, food(banana, rotten))), 
+	assertz(at(room1, food(apple, healthy))), 
+	/* all locations excluding goal */
+	locations_no_goal(All_locations_no_goal), 
+	random_permutation(All_locations_no_goal, Locations),	
+	/* all items */
+	all_items(All_items),
+	random_permutation(All_items, Items),		
+	place_them(Items, Locations, All_locations_no_goal), !.
 
-/* items' location and status-description */
-place_items:- assertz(at(room10, object(key_to_jungle, _))), 
-	assertz(at(room5, safe(magic_wand, locked))), assertz(at(room7, food(banana, healthy))), 
-	assertz(at(room1, food(banana, healthy))), assertz(at(room2, food(banana, healthy))), 
-	assertz(at(room4, food(banana, healthy))), assertz(at(room8, food(banana, rotten))),
-	assertz(at(room3, food(banana, infected))), assertz(at(room5, object(rotten_banana_detector, _))), 
-	assertz(at(room6, object(key, safe))), assertz(at(room9, safe(magic_wand, locked))).
+/* safe check in case of too restrictive constraints */	
+place_items.
 
-/* debug */
-place_items_debug:-
-	assert(i_am_at(room8)), 
-	assert(at(room8, object(key, door))),
-	assertz(at(grey_area, food(banana, rotten))), 
-	assertz(at(grey_area, liquid(elisir, _))), 
-	assertz(at(grey_area, liquid(elisir, _))), 
-	assertz(at(grey_area, food(banana, infected))), 
-	assertz(at(grey_area, food(apple, healthy))),
-	assertz(at(grey_area, object(key, safe))), 
-	
-	assertz(at(grey_area, object(specs, unpaired))),
-	assertz(at(grey_area, object(lens, _))),
-	assertz(at(grey_area, safe(lens, locked))),
-	 
-	assertz(at(grey_area, object(key, door))), 
-	assertz(at(grey_area, object(key, jungle))),
-	
-	
-	assertz(at(grey_area, object(specs))),
-	assertz(at(grey_area, object(lens))),
-	
-	 
-	assertz(at_area(grey_area, north, enemy(gorilla, deb1, 1, aggressive))), 
-	assertz(at_area(grey_area, north, enemy(gorilla, deb2, 2, aggressive))), 
-	assertz(at_area(grey_area, north, enemy(gorilla, deb3, 3, aggressive))),
-	
-	assertz(enemy_holds(deb3, object(bbb, kkk))).
+/******** constraints *******/
+place_them([], _, _). /* done */
+place_them(Items, [], All_loc):- /* scrumble the original location list and try again */
+	Items = [_|_],
+	random_permutation(All_loc, Random_loc),
+	place_them(Items, Random_loc, All_loc). 
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = object(key, safe), /* key to safe cannot be in room with safe */
+	at(LH, safe(_, _)),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = safe(_, _), /* and vice-versa */
+	at(LH, object(key, safe)),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = object(key, door), /* key to room cannot be in room with locked door */
+	locked(LH, _),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = safe(_, _), /* no more than one safe per room */
+	at(LH, safe(_, _)),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = object(shield, _), /* no more than one shield per room */
+	at(LH, object(shield, _)),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = liquid(elisir, _), /* no more than one elisir per room */
+	at(LH, liquid(elisir, _)),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = liquid(elisir, _), /* no elisir where infected food is */
+	at(LH, food(_, infected)),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|_],
+	Locations = [LH|LT],
+	IH = food(_, infected), /* and vice-versa */
+	at(LH, liquid(elisir, _)),
+	place_them(Items, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|IT],
+	IH \= object(key, door),
+	Locations = [LH|LT],	
+	assertz(at(LH, IH)), /* place the item */
+	place_them(IT, LT, All_loc).
+place_them(Items, Locations, All_loc):-
+	Items = [IH|IT],
+	IH = object(key, door),
+	Locations = [LH|LT],
+	all_paths_dir(grey_area, LH, Path),
+	path_is_clear(Path), /* keys are accessible from start area: no locks on the way */
+	length(Path, Count),
+	Count > 2, /* path longer than 2...let's not give away the keys easily */	
+	assertz(at(LH, IH)), 
+	place_them(IT, LT, All_loc).
+place_them(_, _).
 
-/* =============================== OBJECT DEFINITIONS ================================= */
+/* helper predicate: path does not contain a locked location */
+path_is_clear([]).	
+path_is_clear([_|[]]).
+path_is_clear(Path):-
+	Path = [Location, Direction|T],
+	not(locked(Location, Direction)),
+	path_is_clear(T).		
 
-/* defining food and drinks as containers */
-contains(Item, Content) :- 
-	Item = food(Content, _), !.
-contains(Item, Content) :- 
-	Item = liquid(Content, _), !.
-/* defining a container object made of specs and lens */
-contains(object(specs, lens), Content) :-
-	name(" (paired)", Suffix),
-	name(specs, Prefix),
-	append(Prefix, Suffix, ContentToList),
-	name(Content, ContentToList), !.
-/* defining a container object made of unpaired specs */
-contains(object(specs, _), Content) :-
-	name(" (unpaired)", Suffix),
-	name(specs, Prefix),
-	append(Prefix, Suffix, ContentToList),
-	name(Content, ContentToList), !.
-/* defining a container object made of key and what the key can unlock */
-contains(Item, Content) :-
-	Item = object(key, To_what),
-	name(To_what, Prefix),
-	name("_", Middle),
-	name(key, Suffix),
-	append(Prefix, Middle, Left_and_middle),
-	append(Left_and_middle, Suffix, ContentToList),
-	name(Content, ContentToList), !.	
-/* defining a locked safe container */
-contains(safe(_, locked), Content) :-
-	name(" (locked)", Suffix),
-	name("safe", Prefix),
-	append(Prefix, Suffix, ContentToList),
-	name(Content, ContentToList), !.
-/* defining an unlocked and empty safe container */
-contains(safe(empty, unlocked), Content) :-
-	name(" (empty)", Suffix),
-	name("safe", Prefix),
-	append(Prefix, Suffix, ContentToList),
-	name(Content, ContentToList), !.
-/* defining an unlocked and non-empty safe container */
-contains(Item, Content) :-
-	Item = safe(X, unlocked),
-	X \= empty,
-	name("safe", Prefix),
-	name(" (unlocked, containing: 1 x ", Left_part),
-	name(X, Middle_part),
-	append(Left_part, Middle_part, Left_and_middle),
-	name(")", Right_part),
-	append(Left_and_middle, Right_part, Item_description),
-	append(Prefix, Item_description, ContentToList),
-	name(Content, ContentToList), !.
-/* defining any other type of object */
-contains(Item, Content) :- 
-	Item = object(Content, _),
-	Content \= key, !.
+/* ============================= START FACTS - locking doors ========================== */
+
+/* locking at least one door in the shortest path from each location connected to room1 */
+lock_doors:-
+	place_locks_on_shortest_paths; /* disjuction as this will fail to backtrack */
+	locked(_, _), /* at least one lock is placed... */
+	fully_lock_goal. /* just in case */
+lock_doors:-
+	not(locked(_, _)), fully_lock_goal.
+
+/* fully locking out the jungle */
+fully_lock_goal:-
+	connected(Place, Locked_dir, jungle), 
+	not(locked(Place, Locked_dir)),
+	assert(locked(Place, Locked_dir)).	
+fully_lock_goal.
+
+/* randomly locking doors on the 3 main shortest paths from room1 to the jungle */	
+place_locks_on_shortest_paths:-
+	connected(room1, _, Next_Room), /* room2, room3, room4 */
+	Next_Room \= grey_area, /* not going backwards */
+	shortest_dir(Next_Room, jungle, Path_dir), /* shortest path with directions */
+	shortest(Next_Room, jungle, Path), /* shortest path without directions */
+	reverse(Path_dir, [_|T_dir]), reverse(T_dir, Path_dir_without_jungle),
+	reverse(Path, [_|T]), reverse(T, Path_without_jungle),
+	not_locked_already(Location, Path_without_jungle),
+	get_direction_to_jungle(Path_dir_without_jungle, Location, Direction),
+	assert(locked(Location, Direction)), fail. /* backtracking to lock more doors */
+
+/* get the direction towards the jungle (which is the adjacent member in the list) */
+get_direction_to_jungle([Location, Direction|_], Location, Direction).
+get_direction_to_jungle(Path, Location, Direction):-
+	Path = [_, _|T],
+	get_direction_to_jungle(T, Location, Direction).
+
+/* finding a location not already locked and not equal to start area */	
+not_locked_already(Location, Path):-
+	get_random_Location(Location, Path, _),
+	Location \= grey_area, /* no locks in the start location */
+	not(locked(Location, _)). /* max allowed: 1 lock per location */
+
+/* encapsulate random_member predicate to try again recursively until it succeeds */	
+get_random_Location(Location, Path, _):-
+	random_member(Location, Path);
+	get_random_Location(Location, Path, _), !.
 	
 /* =================================== LOOKING AROUND ================================= */
 
 /* inspecting a place looking for object */
 look:-
-	game_is_still_on, not(look(_)), !. /* negating as it will always fail to leverage backtracking
-								 and list all items at once. The command will always
-								 succeed no matter what, unless the precheck (alive) 
-								 fails */
+	game_is_still_on, not(look(_)), !. /* negating as it will always fail to leverage 
+										  backtracking and list all items at once. 
+										  The command will always succeed no matter what, 
+										  unless the pre-check (game_is_still_on) fails */
 look(_) :-
 	write("Looking around...:"), nl,
 	i_am_at(Here),
@@ -286,21 +352,28 @@ inspect(_):-
 
 /* picking individual items, whichever is first */
 pick:-
-	game_is_still_on, try_pick, !.
+	game_is_still_on, can_pick, try_pick, !.
 	
 try_pick:- i_am_at(Place), at(Place, _), pick(_), !.
 
-try_pick:- write("...there is nothing here to pick!!"), fail, !.
+try_pick:- 
+	i_am_at(Place), not(at(Place, _)), 
+	write("...there is nothing here to pick!!"), fail, !.
+
+/* when a safe is on top of the list and the pick predicate is invoked with arity = 0,
+having this clause allows to display the proper message */
+try_pick:- i_am_at(Place), !, at(Place, safe(_, _)), !, pick(safe, _), !.
 
 /* picking individual items */
 pick(Item):-
-	game_is_still_on, can_pick, try_pick_item(Item), !.	
+	game_is_still_on, can_pick, try_pick_item(Item), !.
 try_pick_item(Item):-
-	i_am_at(Place), at(Place, _), pick(Item, _), !.
+	i_am_at(Place), at(Place, _),! , pick(Item, _), !.
 try_pick_item(_):-
 	i_am_at(Place), not(at(Place, _)),
 	write("...there is nothing here you can pick!"), fail, !.
 pick(Item, _):-
+	%Item \= safe(_, _),
 	i_am_at(Place),
 	not(item_is_inside_open_safe(Place, Item)),
 	item_is_actually_there(Place, Container, Item), !,
@@ -310,29 +383,36 @@ pick(Item, _):-
 	retract(at(Place, Container)), !.
 /* picking item from an open safe*/	
 pick(Item, _):-
+	%Item \= safe(_, _),
 	i_am_at(Place),
 	item_is_inside_open_safe(Place, Item),
-	grab, !.	
+	grab, !.
+/* default */
+pick(Item, _):-
+	Item \= safe,
+	i_am_at(Place),
+	not(item_is_actually_there(Place, _, Item)),
+	write("...And where the heck have you seen that?!"), nl, fail, !.
 /* trying to pick up safes */
 pick(safe, _):-
 	i_am_at(Place),
 	at(Place, safe(_, locked)), !,
-	format("You can't pick up a safe...~s", ["\n"]), fail, !.
+	format("You can't pick up a safe...~s", ["\n"]), !, fail, !.
 pick(safe, _):-
 	i_am_at(Place),
 	at(Place, safe(Item, unlocked)),
 	Item \= empty,
-	format("Safes are too heavy...Hint: try grabbing the ~w...~s", [Item, "\n"]),! ,fail.
+	format("Safes are too heavy...try grabbing the ~w inside...~s", [Item, "\n"]),! ,fail.
 pick(safe, _):-
 	i_am_at(Place),
 	at(Place, safe(empty, unlocked)), !,
 	named(Name),
 	write("You can't pick up a safe..."),
 	format("and by the way this one is empty, can't you see that, ~w ?", [Name]), fail, !.
-pick(Item, _):-
+pick(safe, _):-
 	i_am_at(Place),
-	not(item_is_actually_there(Place, _, Item)),
-	write("...And where the heck have you seen that?!"), fail, !.
+	not(at(Place, safe(_, _))), !,
+	write("You can't pick up a safe...and there isn't one here, anyway..."), fail, !.
 	
 /* picking one item and showing pockets content */	
 pick_and_show(Item):-
@@ -363,7 +443,7 @@ try_pick_all_and_show:- try_pick_all, !; pockets, !.
 /* entry point: dropping individual items, whichever is first */
 drop:-
 	game_is_still_on, try_drop, !.
-try_drop:- /* droppping inly if in posses of anything */
+try_drop:- /* dropping only if in posses of anything */
 	holding(_),! , drop(_).
 try_drop:- /* print friendly message otherwise */
 	write("You don't have anything on you at the moment..."), fail.
@@ -489,7 +569,7 @@ pockets:-
 										pockets. The additional life point check 
 										is not necessary, but it prevents prolog 
 										from reporting a success value when the game
-										is over*/
+										is over */
 	not(game_is_finished).
 		
 pockets(_):-
@@ -504,7 +584,7 @@ pockets(_):-
 	
 /* pairing specs and lens */
 pair:-
-	game_is_still_on, pair(_).	
+	game_is_still_on, pair(_), !.	
 pair(_):-
 	holding(object(specs, _)),
 	holding(object(lens, _)),
@@ -525,7 +605,7 @@ pair(_):-
 
 /* unlocking safes */
 unlock:- 
-	game_is_still_on, unlock(_).
+	game_is_still_on, unlock(_), !.
 unlock(_):-
 	is_there_even_a_safe.
 unlock(_):-
@@ -542,12 +622,17 @@ unlock(_):-
 	retract(at(Place, Item)),
 	assert(at(Place, safe(Precious, unlocked))),
 	format("You have unlocked the safe!! Grab the ~w inside it!!~s", [Content,"\n"]), !.
+unlock(_):-
+	i_am_at(Place),
+	at(Place, safe(_, unlocked)),
+	holding(object(key, safe)),
+	write("The safe is already open..."), nl, fail.
 
 /* ====================== GRABBING objects from OPEN SAFES ============================ */
 	
 /* grabbing an object from an open safe */
 grab:- 
-	game_is_still_on, grab(_).
+	game_is_still_on, grab(_), !.
 grab(_):-
 	is_there_even_a_safe.
 grab(_):-
@@ -556,9 +641,9 @@ grab(_):-
 	write("You can't grab anything until you unlock the safe"), nl, fail.
 grab(_):-
 	i_am_at(Place),
-	at(Place, safe(Content, unlocked)),
+	at(Place, safe(Content, unlocked)),! ,
 	can_pick,
-	pick_from_safe(Content, Place) , !.
+	pick_from_safe(Content, Place), !.
 	
 	
 /* ================================ UNLOCKING DOORS =================================== */

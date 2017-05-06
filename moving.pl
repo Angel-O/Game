@@ -88,9 +88,6 @@ completely unaccessible) */
 direction_is_valid(Here, Direction) :-
  	connected(Here, Direction, _) ;
  	write("You can't go there."), fail.
- 	
-direction_is_valid(jungle, _) :-
- 	write("You won!!!."), reset. /* prompt the user to play again...in the alive predicate....TODO */
 
 /* The door is not locked */
 door_is_not_locked(Here, Direction) :-
