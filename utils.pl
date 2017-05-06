@@ -45,6 +45,20 @@ all_paths_dir_aux(Start, Finish, Accumulator, Path):-
 	append(Accumulator, [Direction, Next], NewAccumulator),
 	all_paths_dir_aux(Next, Finish, NewAccumulator, Path).
 	
+/* this variant adds the direction between locations with no locked doors */
+all_paths_dir_no_locks(Start, Finish, Path):-
+	all_paths_dir_aux_no_locks(Start, Finish, [Start], Path).
+all_paths_dir_aux_no_locks(Start, Start, [Start|[]], Path):-
+	Path = "you are already there, aren't you?!", !.	
+all_paths_dir_aux_no_locks(Finish, Finish, Accumulator, Path):-
+	Path = Accumulator.
+all_paths_dir_aux_no_locks(Start, Finish, Accumulator, Path):-
+	connected(Start, Direction, Next),
+	not(locked(Start, Direction)),
+	not(member(Next, Accumulator)),
+	append(Accumulator, [Direction, Next], NewAccumulator),
+	all_paths_dir_aux_no_locks(Next, Finish, NewAccumulator, Path).
+	
 /* getting the shortest path between two arbitrary locations!!! */
 shortest(Start, Finish, Shortest):-
 	retractall(shortest_so_far(_)),
@@ -73,6 +87,24 @@ shortest_dir(Start, Finish, Shortest):-
 	
 shortest_dir(Start, Finish, First, _):-
 	all_paths_dir(Start, Finish, Next),
+	Next \= First,
+	length(Next, Next_Length),
+	shortest_so_far(Current_shortest),
+	length(Current_shortest, Current_length),	
+	Next_Length < Current_length,
+	retractall(shortest_so_far(_)),
+	assert(shortest_so_far(Next)), fail.
+	
+/* getting the shortest path with the direction and no locked doors */	
+shortest_dir_no_locks(Start, Finish, Shortest):-
+	retractall(shortest_so_far(_)),
+	all_paths_dir_no_locks(Start, Finish, First),
+	assert(shortest_so_far(First)),
+	shortest_dir_no_locks(Start, Finish, First, _);
+	shortest_so_far(Shortest), !.
+	
+shortest_dir_no_locks(Start, Finish, First, _):-
+	all_paths_dir_no_locks(Start, Finish, Next),
 	Next \= First,
 	length(Next, Next_Length),
 	shortest_so_far(Current_shortest),

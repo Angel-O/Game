@@ -107,7 +107,7 @@ select_name(_) :-
 
 /* print name and life points */
 me :-
-	game_is_still_on, me(_).
+	game_is_still_on, me(_), !.
 me(_) :- 
 	life_points(Life),
 	named(Name),
@@ -416,7 +416,7 @@ pick(safe, _):-
 	
 /* picking one item and showing pockets content */	
 pick_and_show(Item):-
-	game_is_still_on, pick_and_show(Item, _).
+	game_is_still_on, pick_and_show(Item, _), !.
 pick_and_show(Item, _):- pick(Item), fail; nl, pockets, !.
 	
 /* picking everything around */
@@ -434,7 +434,7 @@ try_pick_all:-
 
 /* picking everything and showing pockets content */
 pick_all_and_show:-
-	game_is_still_on, try_pick_all_and_show.	
+	game_is_still_on, try_pick_all_and_show, !.	
 try_pick_all_and_show:- try_pick_all, !; pockets, !.
 
 	

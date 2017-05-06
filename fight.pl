@@ -275,9 +275,9 @@ punch_power(_, 4).
 
 /* when defeated the enemy will drop all items */
 enemy_drops(Place, Id):-
-	enemy_holds(Id, Item),
+	user:enemy_holds(Id, Item),
 	assertz(user:at(Place, Item)), /* user qualifier to prevent creating a 
 									   new predicate scoped to this file */
-	retract(enemy_holds(Id, Item)),
-	enemy_drops(Place, Id).
+	retract(user:enemy_holds(Id, Item)),
+	enemy_drops(Place, Id). /* dropping everything recursively */
 enemy_drops(_, _). /* the predicate will always be true */
