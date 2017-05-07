@@ -362,28 +362,37 @@ try_pick:-
 
 /* when a safe is on top of the list and the pick predicate is invoked with arity = 0,
 having this clause allows to display the proper message */
-try_pick:- i_am_at(Place), !, at(Place, safe(_, _)), !, pick(safe, _), !.
+try_pick:- i_am_at(Place), !, 
+	at(Place, safe(_, _)), !,
+	at(Place, Thing), can_be_picked(Thing),
+	contains(Thing, Item),
+	pick(Item, _); /* pick a pickable item first, then try with picking a safe if there
+					is one */
+	at(Place, safe(_, _)),
+	pick(safe, _), !.
 
 /* picking individual items */
 pick(Item):-
 	game_is_still_on, can_pick, try_pick_item(Item), !.
 try_pick_item(Item):-
-	i_am_at(Place), at(Place, _),! , pick(Item, _), !.
+	i_am_at(Place), at(Place, Thing), Thing \= safe(_, _),! , pick(Item, _), !.
+try_pick_item(Item):-
+	i_am_at(Place), at(Place, safe(_, locked)),! , pick(safe, _), !.
+try_pick_item(Item):-
+	i_am_at(Place), at(Place, safe(_, unlocked)),! , grab, !.
 try_pick_item(_):-
 	i_am_at(Place), not(at(Place, _)),
 	write("...there is nothing here you can pick!"), fail, !.
 pick(Item, _):-
-	%Item \= safe(_, _),
 	i_am_at(Place),
 	not(item_is_inside_open_safe(Place, Item)),
 	item_is_actually_there(Place, Container, Item), !,
 	can_be_picked(Container), !,
 	assertz(holding(Container)),
 	format("Picked: ~w~s", [Item, "\n"]),
-	retract(at(Place, Container)), !.
+	retract(at(Place, Container)).
 /* picking item from an open safe*/	
 pick(Item, _):-
-	%Item \= safe(_, _),
 	i_am_at(Place),
 	item_is_inside_open_safe(Place, Item),
 	grab, !.
