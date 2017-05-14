@@ -74,3 +74,18 @@ connected(room9, east, room8).
 
 connected(room10, south, room9).
 connected(room10, west, room7).
+
+
+room_name(grey_area, "Obscure court").
+room_name(room1, "Jaggernaut place").
+room_name(room2, "Elm villa").
+room_name(room3, "Splinter corner").
+room_name(room4, "Plumber cave").
+room_name(room5, "Gromit kindergarden").
+room_name(room6, "Elephant villa").
+room_name(room7, "Zion cloud").
+room_name(room8, "Back beach").
+room_name(room9, "Trouble bubble").
+room_name(room10, "Crow stash").
+room_name(room11, "Water stone").
+room_name(jungle, "Monkeys jungle").

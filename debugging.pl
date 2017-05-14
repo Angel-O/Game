@@ -34,3 +34,18 @@ place_items_debug:-
 	assertz(user:at_area(grey_area, north, enemy(gorilla, deb3, 3, aggressive))),
 	
 	assertz(enemy_holds(deb3, object(bbb, kkk))).
+	
+	
+/* testing */
+do_sort:-
+	sort_enemies([enemy(gorilla, g1, 26, aggressive),enemy(gorilla, g2, 23, aggressive),
+		enemy(gorilla, g3, 26, aggressive), enemy(gorilla, g4, 22, aggressive),
+		enemy(evil_bat, b1, 8, aggressive), enemy(evil_bat, b2, 9, aggressive),
+		enemy(evil_bat, b3, 7, aggressive), enemy(evil_bat, b4, 12, aggressive),
+		enemy(zoo_keeper, z1, 14, aggressive), enemy(zoo_keeper, z2, 22, aggressive),
+		enemy(zoo_keeper, z3, 16, aggressive), enemy(zoo_keeper, z4, 15, aggressive)], 
+	Enemies),
+	list_out(Enemies).
+list_out([]):- nl.	
+list_out([H|T]):-
+	write(H), nl, list_out(T).

@@ -21,7 +21,7 @@
 :- dynamic(health/1).
 :- dynamic(game_is_finished/0).
 
-%TODO add describe predicate to combine lost of useful stuff in one go
+%TODO add describe predicate to combine lots of useful stuff in one go
 
 /* ========================== Importing files and modules ============================= */
 
@@ -118,19 +118,22 @@ where :-
 	game_is_still_on, where(_), !.
 where(_) :-
 	i_am_at(Place),
+	room_name(Place, Place_name),
 	moved(Area),
 	Area == just_arrived,
-	format("Current location: ~w, ~w", [Place, Area]), !.
+	format("Current location: ~w, ~w", [Place_name, Area]), !.
 where(_) :-
 	i_am_at(Place),
+	room_name(Place, Place_name),
 	moved(Area),
 	Area == nowhere,
-	format("Current location: ~w, ~w...", [Place, Area]), !.
+	format("Current location: ~w, ~w...", [Place_name, Area]), !.
 where(_) :-
 	i_am_at(Place),
+	room_name(Place, Place_name),
 	moved(Area),
 	Area \= just_arrived,
-	format("Current location: ~w, ~w side", [Place, Area]), !.
+	format("Current location: ~w, ~w side", [Place_name, Area]), !.
 
 /* listing available directions and destinations */		
 to :- 
@@ -150,7 +153,8 @@ to(_):-
 	i_am_at(Place),
 	connected(Place, Area, Destination),
 	not(locked(Place, Area)),
-	format("~w ==> ~w ~s", [Area, Destination, "\n"]), fail.
+	room_name(Destination, Room_name),
+	format("~w ==> ~w ~s", [Area, Room_name, "\n"]), fail.
 
 /* ============================= START FACTS - placing items ========================== */
 
@@ -368,6 +372,7 @@ try_pick:- i_am_at(Place), !,
 	contains(Thing, Item),
 	pick(Item, _); /* pick a pickable item first, then try with picking a safe if there
 					is one */
+	i_am_at(Place),
 	at(Place, safe(_, _)),
 	pick(safe, _), !.
 
@@ -376,9 +381,9 @@ pick(Item):-
 	game_is_still_on, can_pick, try_pick_item(Item), !.
 try_pick_item(Item):-
 	i_am_at(Place), at(Place, Thing), Thing \= safe(_, _),! , pick(Item, _), !.
-try_pick_item(Item):-
+try_pick_item(_):-
 	i_am_at(Place), at(Place, safe(_, locked)),! , pick(safe, _), !.
-try_pick_item(Item):-
+try_pick_item(_):-
 	i_am_at(Place), at(Place, safe(_, unlocked)),! , grab, !.
 try_pick_item(_):-
 	i_am_at(Place), not(at(Place, _)),
@@ -707,7 +712,7 @@ instructions:-
 	format("22. pair. [~s]", ["pair specs and lens to be able to use the inspect command"]), nl,
 	format("23. punch. [~s]", ["hit the enemy!"]), nl,
 	format("24. unlock. [~s]", ["unlock an open safe"]), nl,
-	format("25. grab. [~s]", ["grab an item from an open safe. You can also use the pick command if you specify the item"]), nl,
+	format("25. grab. [~s]", ["grab an item from an open safe. You can also use the pick command if you wish"]), nl,
 	format("26. unlock_door. [~s]", ["unlock a door allowing to proceed in that direction"]), nl,
 	format("27. me. [~s]", ["print info about the player, name and life points"]), nl,
 	format("28. where. [~s]", ["show current location and area"]), nl,

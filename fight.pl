@@ -170,7 +170,7 @@ steal(Type, Id):-
 	holding(Item),
 	contains(Item, Content),
 	retract(holding(Item)),
-	assertz(enemy_holds(Id, Item)),
+	assertz(user:enemy_holds(Id, Item)),
 	format("The ~w just robbed you!~sSay goodbye to your ~w", [Type, "\n", Content]), !.
 steal(_,_).
 

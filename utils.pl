@@ -149,18 +149,4 @@ longest_dir(Start, Finish, First, _):-
 	retractall(longest_so_far(_)),
 	assert(longest_so_far(Next)), fail.
 
-
-
-/* this rule determines if two rooms are adjacent. Note how
-the comparison must come after the path rule is called
-since it is not bound before that
- */
-%adjacent(RoomA, RoomB) :-
-%	path(RoomA, _ , RoomB),
-%	RoomA \= RoomB.
-	
-%not_circular([]).
-%not_circular([_|[]]).
-%not_circular([H|T]):-
-%	not(member(H, T)).
 	
