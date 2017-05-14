@@ -19,14 +19,14 @@ place_enemy:-
 	/* sorting all enemies in the game */	
 	sort_enemies([
 		enemy(gorilla, g5, 26, aggressive), enemy(gorilla, g6, 23, aggressive),
-		enemy(zoo_keeper, z5, 16, aggressive), enemy(zoo_keeper, z6, 18, aggressive),
+		enemy(zoo_keeper, z5, 16, aggressive), enemy(zoo_keeper, z6, 18, wary),
 		enemy(evil_bat, b5, 12, aggressive), enemy(evil_bat, b6, 8, aggressive),		
 		enemy(gorilla, g1, 26, aggressive), enemy(gorilla, g2, 23, aggressive),
-		enemy(gorilla, g3, 26, aggressive), enemy(gorilla, g4, 22, aggressive),
+		enemy(gorilla, g3, 26, wary), enemy(gorilla, g4, 22, aggressive),
 		enemy(evil_bat, b1, 8, aggressive), enemy(evil_bat, b2, 9, aggressive),
-		enemy(evil_bat, b3, 7, aggressive), enemy(evil_bat, b4, 12, aggressive),
+		enemy(evil_bat, b3, 7, aggressive), enemy(evil_bat, b4, 12, quiet),
 		enemy(zoo_keeper, z1, 14, aggressive), enemy(zoo_keeper, z2, 22, aggressive),
-		enemy(zoo_keeper, z3, 16, aggressive), enemy(zoo_keeper, z4, 15, aggressive)], 
+		enemy(zoo_keeper, z3, 16, wary), enemy(zoo_keeper, z4, 15, aggressive)], 
 	Sorted),
 	
 	/* reversing the order from the most to the less dangerous */

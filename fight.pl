@@ -189,10 +189,10 @@ drop_item(_). /* even if we have nothing to drop this predicate
 /* the probability to be attacked depends on the enemy's behaviour */
 attack_chances(aggressive, Chance):-
 	random(0, 2, Chance). /* there is 50% chance that an aggressive enemy will fight back */
-attack_chances(quiet, Chance):-
+attack_chances(wary, Chance):-
 	random(0, 3, Chance). /* there is 30% chance that an wary enemy will fight back */
-attack_chances(evasive, Chance):-
-	random(0, 5, Chance). /* there is 25% chance that an evasive enemy will fight back */
+attack_chances(quiet, Chance):-
+	random(0, 5, Chance). /* there is 25% chance that an quiet enemy will fight back */
 
 
 /* ==================================== user attacking ================================ */

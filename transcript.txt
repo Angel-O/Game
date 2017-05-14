@@ -1,0 +1,191 @@
+//================== LAUNCHING THE GAME ==================//
+
+?- [amazeinmonkey].
+Welcome to aMazeInMonkey!! Use the start command to begin the adventure!
+Once started, use any of the commands listed below (followed by a dot), hit enter and see what happens (all lower-case please)!
+
+Commands available to you:
+
+00. instructions. [show this menu]
+01. start. [start the game]
+02. reset. [restart the game, reloading all the files, useful when debugging]
+03. n. [move north]
+04. s. [move south]
+05. w. [move west]
+06. e. [move east]
+07. look. [look around the location you are in and list all objects]
+08. inspect. [allows to view who holds what: only available after pairing specs and lens]
+09. pick. [try to pick the first item found]
+10. pick(item). [pick the item specified, if there is enough space in your pockets]
+11. pick_all. [pick all the items around]
+12. pockets. [show what is currently held]
+13. eat. [eat the first item found in the pockets, if edible]
+14. eat(item). [eat the specified item, if edible]
+15. drink. [drink the first item found in the pockets, if drinkable]
+16. drink(item). [drink the specified item, if drinkable]
+17. pick_and_show(item). [pick an item and show the pockets content]
+18. pick_all_and_show. [pick all the items around and show the pockets content]
+19. drop. [drops the first item in the pockets, if any are held]
+20. drop(item). [drops the specified item, if currently held]
+21. drop_all. [drop all the items currently held]
+22. pair. [pair specs and lens to be able to use the inspect command]
+23. punch. [hit the enemy!]
+24. unlock. [unlock an open safe]
+25. grab. [grab an item from an open safe. You can also use the pick command if you wish]
+26. unlock_door. [unlock a door allowing to proceed in that direction]
+27. me. [print info about the player, name and life points]
+28. where. [show current location and area]
+29. select_name. [pick a name]
+30. to. [show available directions and destinations from the current location]
+31. lose. [ends the game]
+32. quit. [abandon the game (equivalent of Prolog halt command)]
+
+true.
+
+?- start.
+Type your name (lower-case, please): angelo.
+Hi angelo! Available life points: 35.
+true .
+
+//================== GET AVAILABLE DIRECTIONS ==================//
+
+?- to.
+Available directions: 
+
+south ==> Jaggernaut place 
+west ==> Jaggernaut place 
+north ==> Jaggernaut place 
+east ==> Jaggernaut place 
+true.
+
+//================== MOVING SOMEWHERE ==================//
+
+?- s.
+You moved to: Jaggernaut place
+
+(...sinister sounds...) //===> ENEMY MOVING TOWARDS THE SHORTEST PATH
+
+Looking around...:
+1 x banana
+1 x apple
+1 x elisir
+1 x banana
+1 x safe (locked) // ===> SOME ITEMS HAVE A STATUS
+true.
+
+//================== TRYING TO EAT ITEMS ==================//
+
+?- eat.
+You have nothing to eat, go and get something!
+false.
+
+//================== PICKING ITEMS  ==================//
+
+?- pick.
+Picked: banana
+true.
+
+?- pick.
+Picked: apple
+true.
+
+?- pick.
+Picked: elisir
+true.
+
+//================== ROTTEN FOOD: LIFE DROP  ==================//
+
+?- eat.
+You ate: rotten banana. New life: 32
+true.
+
+//========= UNSUCCESFUL MOVE DUE TO ENEMY ATTACK  =============//
+
+?- n.
+You have been attacked by: gorilla...
+New life: 29
+(You can't go north without fighting!)
+false.
+
+//======= ATTACK AND ENEMY REACTION: ENEMY FIGHTING BACK  =========//
+
+?- punch.
+You punched a gorilla. gorilla life: 22
+Careful! This gorilla is fighting back!
+You have been attacked by: gorilla...
+New life: 26
+(You can't go north without fighting!)
+true.
+
+//======= ATTACK AND ENEMY REACTION: ENEMY RUNNING AWAY  =========//
+
+?- punch.
+You punched a gorilla. gorilla life: 18
+...The gorilla just ran away!!
+true.
+
+?- to.
+Available directions: 
+
+south ==> Obscure court 
+west ==> Splinter corner 
+north ==> Elm villa 
+east ==> Plumber cave 
+true.
+
+//======= ATTACK AND ENEMY REACTION: ENEMY STEALING ITEMS  =========//
+
+?- punch.
+You punched a gorilla. gorilla life: 14
+The gorilla just robbed you!
+Say goodbye to your apple
+true.
+
+?- n.
+You moved to: Elm villa
+
+Looking around...:
+1 x banana
+1 x safe_key
+1 x elisir
+true.
+
+?- pick.
+Picked: banana
+true.
+
+?- pick.
+Picked: safe_key
+true.
+
+//==================== NO MORE SPACE IN POCKETS  =========//
+
+?- pick.
+
+You can't pick anything else: your pockets are full!
+Drop something, eat it or drink it...
+
+false.
+
+...
+...
+...
+
+//==================== ENEMY DODGING ATTACKS  =========//
+
+?- punch.
+You punched a gorilla. gorilla life: 6
+true.
+
+?- punch.
+Ouch!! The gorilla dodged your punch!
+false.
+
+//==================== KILLING ENEMIES ===============//
+
+?- punch.
+Well done! You just got rid of a: gorilla.
+true.
+
+
+....and many more...plase use read the instructions for a comprehensive list of commands

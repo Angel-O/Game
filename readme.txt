@@ -23,11 +23,13 @@ Assignments Requirements:
     
     You can also pick a shield that will be able to protect you for a limited amout of hits
     
+    Pockets have a limited space, so carry only what you need
+    
 //========================================//
 
 Notable features: You will never play the same game twice!
 
-1. Enemies have their own behaviour...some might stay still, some may        move, some might hit you when you fight them, some might steal your    goods
+1. Enemies have their own behaviour...some might stay still, some may        move, some might hit you when you fight them, some might steal your    goods...and their behaviour might change during the battle
 
 2. each time you move the shortest path from your location to the goal is  re-calculated: enemies might move to get on your way, depending on their behaviour (you will see "sinister sounds..." when that happens)
     
