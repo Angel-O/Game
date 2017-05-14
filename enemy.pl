@@ -17,7 +17,10 @@ place_enemy:-
 	retractall(user:at_area(_, _, _)),
 	
 	/* sorting all enemies in the game */	
-	sort_enemies([		
+	sort_enemies([
+		enemy(gorilla, g5, 26, aggressive), enemy(gorilla, g6, 23, aggressive),
+		enemy(zoo_keeper, z5, 16, aggressive), enemy(zoo_keeper, z6, 18, aggressive),
+		enemy(evil_bat, b5, 12, aggressive), enemy(evil_bat, b6, 8, aggressive),		
 		enemy(gorilla, g1, 26, aggressive), enemy(gorilla, g2, 23, aggressive),
 		enemy(gorilla, g3, 26, aggressive), enemy(gorilla, g4, 22, aggressive),
 		enemy(evil_bat, b1, 8, aggressive), enemy(evil_bat, b2, 9, aggressive),
@@ -53,7 +56,7 @@ place_enemy:-
 		Locations,						
 		[north, south, west, east]); /* all possible directions */
 		
-	not(fail). /* with the current constraint this should always be succesfull */
+	not(fail). /* with the current constraints this should always be succesfull */
 
 
 /* selecting a random enemy ad random locations and areas (in each location) where 
@@ -105,6 +108,10 @@ on the shortest path */
 /* TODO: enemies holding precious objects should be away from the shortest path */
 
 equip_enemy:-
+	assert(enemy_holds(g5, liquid(elisir, _))), assert(enemy_holds(g6, object(shield, 6))), 
+	assert(enemy_holds(b5, liquid(elisir, _))), 
+	assert(enemy_holds(b6, food(banana, healthy))), 
+	assert(enemy_holds(z5, object(lens, _))), assert(enemy_holds(z6, object(key, safe))), 
 	assert(enemy_holds(b1, object(lens, _))), assert(enemy_holds(b2, object(shield, 6))), 
 	assert(enemy_holds(b3, object(lens, _))), 
 	assert(enemy_holds(b4, food(apple, infected))),

@@ -39,5 +39,5 @@ at least initially, etc
 
 5. doors are locked at random, following certain criteria, to make the game more intersting, but you are guarnateed to have a clear path to at least one door key
 
-6. lastly: you should never ever get a simple "true" or "false" "Prologian" response to your queries in ay situatuion: at game start, during the game or when the game finishes, you will always be able to get a clear espanation for any of your queries assuming you use the once provided to you. 
+6. lastly: you should never ever get a simple "true" or "false" "Prologian" response to your queries in ay situatuion: at game start, during the game or when the game finishes, you will always be able to get a clear exlpanation to any of your queries assuming you use the ones provided to you. 
 
